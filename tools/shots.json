@@ -1,0 +1,17 @@
+[
+  {
+    "name": "boot-street",
+    "frame": 0,
+    "description": "120m night avenue from player spawn"
+  },
+  {
+    "name": "enemy-approach",
+    "frame": 90,
+    "description": "Enemy pathfinding along the street"
+  },
+  {
+    "name": "combat",
+    "frame": 130,
+    "description": "Lockstep auto-fire combat on the avenue"
+  }
+]

@@ -1,0 +1,31 @@
+{
+  "seed": 1,
+  "width": 1280,
+  "height": 720,
+  "shots": [
+    {
+      "name": "boot-street",
+      "frame": 0,
+      "file": "boot-street.png",
+      "bytes": 1134610,
+      "drawCalls": 393,
+      "shaderCompilesAfterReady": 0
+    },
+    {
+      "name": "enemy-approach",
+      "frame": 90,
+      "file": "enemy-approach.png",
+      "bytes": 1137311,
+      "drawCalls": 394,
+      "shaderCompilesAfterReady": 0
+    },
+    {
+      "name": "combat",
+      "frame": 130,
+      "file": "combat.png",
+      "bytes": 1177527,
+      "drawCalls": 401,
+      "shaderCompilesAfterReady": 0
+    }
+  ]
+}
