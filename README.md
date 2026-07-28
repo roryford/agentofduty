@@ -1,4 +1,4 @@
-# Grok of Duty
+# Agent of Duty
 
 Browser FPS — **Three.js r180 + Vite (WebGL2)**. Night rain-slicked street, one rifle,
 one enemy archetype. Built for cohesion and feel over feature count.

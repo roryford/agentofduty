@@ -1,4 +1,4 @@
-# AGENTS.md — grokofduty
+# AGENTS.md — agentofduty
 
 Canonical instructions for agents working in this repo.
 
