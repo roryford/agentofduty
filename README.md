@@ -3,6 +3,8 @@
 Browser FPS — **Three.js r180 + Vite (WebGL2)**. Night rain-slicked street, one rifle,
 one enemy archetype. Built for cohesion and feel over feature count.
 
+![Night street gameplay](baselines/combat.png)
+
 ## Quick start
 
 ```bash
