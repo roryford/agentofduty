@@ -11,6 +11,7 @@ test('Blender bevel applies successfully and reports modifier failures', () => {
       cwd: new URL('../..', import.meta.url),
       encoding: 'utf8',
       env: { ...process.env, PYTHONDONTWRITEBYTECODE: '1' },
+      timeout: 30_000,
     },
   );
 
