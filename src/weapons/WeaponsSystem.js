@@ -64,6 +64,27 @@ export function computeSpreadDirection(forward, rightOffset, upOffset, spread, o
   return out;
 }
 
+/** Filled alternating-radius star with no opaque rectangular background. */
+export function createMuzzleFlashGeometry(spikes = 8) {
+  const pointCount = spikes * 2;
+  const positions = new Float32Array(pointCount * 9);
+  for (let i = 0; i < pointCount; i++) {
+    const a0 = (i / pointCount) * Math.PI * 2;
+    const a1 = ((i + 1) / pointCount) * Math.PI * 2;
+    const r0 = i % 2 === 0 ? 0.045 : 0.017;
+    const r1 = (i + 1) % 2 === 0 ? 0.045 : 0.017;
+    const offset = i * 9;
+    positions[offset + 3] = Math.cos(a0) * r0;
+    positions[offset + 4] = Math.sin(a0) * r0;
+    positions[offset + 6] = Math.cos(a1) * r1;
+    positions[offset + 7] = Math.sin(a1) * r1;
+  }
+  const geometry = new THREE.BufferGeometry();
+  geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+  geometry.computeBoundingSphere();
+  return geometry;
+}
+
 export class WeaponsSystem {
   static id = 'weapons';
   static deps = ['physics', 'player', 'materials'];
@@ -196,13 +217,19 @@ export class WeaponsSystem {
       side: THREE.DoubleSide,
     });
     this._mats.push(glow);
-    const flashGeom = new THREE.PlaneGeometry(0.07, 0.07);
+    const flashGeom = createMuzzleFlashGeometry();
     this._geoms.push(flashGeom);
     this._muzzleFlash = new THREE.Mesh(flashGeom, glow);
-    this._muzzleFlash.position.set(0, 0.02, -0.48);
     this._muzzleFlash.visible = false;
     this._muzzleFlash.frustumCulled = false;
-    mount.add(this._muzzleFlash);
+    const muzzleSocket = this._gun?.getObjectByName?.('muzzle_socket');
+    if (muzzleSocket) {
+      this._muzzleFlash.position.set(0, 0, 0);
+      muzzleSocket.add(this._muzzleFlash);
+    } else {
+      this._muzzleFlash.position.set(0, 0.02, -0.48);
+      mount.add(this._muzzleFlash);
+    }
     this._glowMat = glow;
 
     mount.position.copy(this._posePos);
@@ -563,11 +590,15 @@ export class WeaponsSystem {
 
     let reloadDip = 0;
     let reloadYaw = 0;
+    let reloadRoll = 0;
+    let reloadRight = 0;
     if (this._reloading) {
       const t = 1 - this._reloadLeft / this.current.reloadTime;
       const wave = Math.sin(t * Math.PI);
-      reloadDip = -0.12 * wave;
-      reloadYaw = 0.35 * wave;
+      reloadDip = -0.035 * wave;
+      reloadYaw = 0.12 * wave;
+      reloadRoll = -0.08 * wave;
+      reloadRight = 0.045 * wave;
     }
 
     let wallLower = 0;
@@ -580,14 +611,14 @@ export class WeaponsSystem {
     // ADS: less kick translation
     const kickScale = (1 - a * 0.55) * motionScale;
     this._gunRoot.position.set(
-      this._posePos.x + bobX + this._kickPos.x * kickScale,
+      this._posePos.x + bobX + this._kickPos.x * kickScale + reloadRight,
       this._posePos.y + bobY + this._kickPos.y * kickScale + reloadDip - wallLower,
       this._posePos.z + this._kickPos.z * kickScale,
     );
     this._gunRoot.rotation.set(
       this._poseRot.x + this._kickRot.x * kickScale,
       this._poseRot.y + this._kickRot.y * kickScale + reloadYaw,
-      this._poseRot.z + this._kickRot.z * kickScale,
+      this._poseRot.z + this._kickRot.z * kickScale + reloadRoll,
     );
 
     // The support hand remains visible through ADS and moves with the magazine.
@@ -595,16 +626,16 @@ export class WeaponsSystem {
       this._hand.visible = true;
       const reloadT = this._reloading ? 1 - this._reloadLeft / this.current.reloadTime : 0;
       const reach = this._reloading ? Math.sin(Math.min(1, reloadT * 1.25) * Math.PI) : 0;
-      this._hand.position.y = -0.02 - a * 0.025 - reach * 0.11;
-      this._hand.position.z = 0.02 + reach * 0.12;
+      this._hand.position.y = -0.02 - a * 0.025 - reach * 0.075;
+      this._hand.position.z = 0.02 + reach * 0.075;
       this._hand.rotation.x = reach * 0.45;
     }
     if (this._magazine) {
       const reloadT = this._reloading ? 1 - this._reloadLeft / this.current.reloadTime : 0;
       const remove = reloadT < 0.5 ? Math.sin(reloadT * Math.PI) : Math.sin((1 - reloadT) * Math.PI);
       this._magazine.position.copy(this._magazineRest);
-      this._magazine.position.y -= Math.max(0, remove) * 0.14;
-      this._magazine.position.z += Math.max(0, remove) * 0.06;
+      this._magazine.position.y -= Math.max(0, remove) * 0.095;
+      this._magazine.position.z += Math.max(0, remove) * 0.045;
       this._magazine.rotation.copy(this._magazineRestRotation);
       this._magazine.rotation.x += Math.max(0, remove) * 0.35;
     }

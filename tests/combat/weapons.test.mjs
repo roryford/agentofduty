@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { WeaponsSystem, computeSpreadDirection } from '../../src/weapons/WeaponsSystem.js';
+import { WeaponsSystem, computeSpreadDirection, createMuzzleFlashGeometry } from '../../src/weapons/WeaponsSystem.js';
 
 function deterministicRng() {
   let n = 0;
@@ -44,6 +44,19 @@ test('spread stays orthogonal and equal at different aim headings', () => {
   });
   assert.ok(Math.max(...offsets) - Math.min(...offsets) < 1e-10);
   for (const dot of offsets) assert.ok(dot < 1 && dot > 0.999);
+});
+
+test('muzzle flash uses a filled star silhouette without a square background', () => {
+  const geometry = createMuzzleFlashGeometry(8);
+  const positions = geometry.getAttribute('position');
+  assert.equal(positions.count, 48);
+  const radii = new Set();
+  for (let i = 0; i < positions.count; i++) {
+    const radius = Math.hypot(positions.getX(i), positions.getY(i));
+    if (radius > 0) radii.add(radius.toFixed(3));
+  }
+  assert.deepEqual([...radii].sort(), ['0.017', '0.045']);
+  geometry.dispose();
 });
 
 test('fixed fire cadence is 600 rpm and emits player-qualified shots', () => {
