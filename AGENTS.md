@@ -20,7 +20,8 @@ npx playwright install chromium   # once, for capture/perf tools
 npm run dev          # local play
 npm run build        # vite → dist/
 npm run assets       # Blender headless → public/models/*.glb (build-time only)
-npm run gate         # build + capture + perf
+npm run test         # node behavioural and verifier tests
+npm run gate         # tests + build + capture + real-GPU perf
 node tools/diff.mjs  # pixel-diff captures/ vs baselines/ (exit nonzero on fail)
 ```
 
@@ -62,6 +63,7 @@ Do not add runtime packages without an explicit decision to expand the brief.
 | fx | `src/fx/` | tracers, particles, shake |
 | audio | `src/audio/` | procedural WebAudio |
 | ui | `src/ui/` | HUD |
+| mission | `src/mission/` | objectives, checkpoints, completion |
 
 Contract:
 
@@ -143,3 +145,21 @@ npm run gate
 cp captures/boot-street.png captures/enemy-approach.png captures/combat.png captures/manifest.json baselines/
 node tools/diff.mjs
 ```
+
+## Upgrade lifecycle and resolved events
+
+The approved upgrade plan is `docs/UPGRADE_PLAN.md`. Core owns `ctx.session`:
+ready / playing / paused / dead / complete. The engine freezes simulation on
+ready/pause/complete while menus render. Session alone owns death/retry timing.
+`session:reset` restores an entire encounter; systems reset their owned state.
+
+Additional events: `session:state {state,previous}`, `session:reset
+{full,spawn,enemySpawns,encounter}`, `mission:objective {index,name}`, and
+`combat:hit {target,from,amount,health,headshot,killed,point}`. `damage:taken`
+includes `target`; only target=player drives player hurt feedback.
+`damage:dealt` is a request; listeners must never mutate it. Targets emit a
+resolved `combat:hit`. `weapon:fire` includes the source actor in `from`.
+
+Real GPU verification uses installed Chrome (ANGLE Metal on macOS). Software
+rendering is not accepted as evidence of device performance. Pixel output is
+capped by total pixels in core resize; render systems must not override it.

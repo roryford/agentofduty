@@ -16,6 +16,7 @@ export const DEFAULT_CONFIG = Object.freeze({
   webgl2: true,
   /** Pixel ratio cap (Retina-friendly but bounded). */
   maxPixelRatio: 2,
+  maxRenderPixels: 2560 * 1440,
   /** Perf budgets (asserted by tools/perf.mjs). */
   perf: Object.freeze({
     /** p95 frame time budget in ms at display rate. */

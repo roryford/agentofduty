@@ -65,6 +65,7 @@ export class AudioSystem {
   }
 
   lateUpdate(_dt, ctx) {
+    this.setMaster(ctx.session.playing ? ctx.session.settings.volume : 0);
     // Track listener for distance mix (player may not be a dep — peek)
     const player = ctx.peek('player');
     if (player && player.eye) {
@@ -88,7 +89,7 @@ export class AudioSystem {
     this._master.gain.value = this._volume;
     this._master.connect(this._ctx.destination);
     this._unlocked = true;
-    if (this._ctx.state === 'suspended') this._ctx.resume();
+    if (this._ctx.state === 'suspended') this._ctx.resume().catch(error => console.warn('[audio] resume failed', error));
     return this._ctx;
   }
 

@@ -111,3 +111,14 @@ baseline shots is reverted, not debated.
 | 2026-07-28 | Auto-respawn on player death | Dead state with no respawn soft-locked play (felt like a hang) |
 
 Runtime dependency remains **three only**. Blender is a **build-time** tool (`npm run assets`).
+
+## Approved upgrade (2026-09-07)
+
+See UPGRADE_PLAN.md: one rifle, three connected encounters, a complete single-
+player night mission. Runtime remains Three.js only; 120 Hz simulation.
+
+Registry additions: session:state {state,previous}; session:reset
+{full,spawn,enemySpawns,encounter}; mission:objective {index,name}; combat:hit
+{target,from,amount,health,headshot,killed,point}. damage:taken gains target;
+weapon:fire gains from. Damage requests are immutable; combat:hit is the
+resolved notification. Core session owns pause/death/retry and checkpoint reset.

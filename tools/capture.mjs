@@ -111,9 +111,10 @@ async function main() {
 
   const browser = await chromium.launch({
     headless: true,
+    channel: 'chrome',
     args: [
       '--use-gl=angle',
-      '--use-angle=swiftshader',
+      ...(process.platform === 'darwin' ? ['--use-angle=metal'] : []),
       '--enable-webgl',
       '--ignore-gpu-blocklist',
       '--hide-scrollbars',

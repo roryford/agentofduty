@@ -1,3 +1,4 @@
+import { GpuTimer } from './gpu-timer.js';
 import { createContext, resizeContext } from './context.js';
 
 /**
@@ -61,13 +62,18 @@ export class Engine {
 
     this.ctx = createContext({
       canvas,
-      config,
+      config: { ...config, lockstep },
       systems: this._systems,
     });
     this._bootLeft = this.ctx.config.bootFrames;
 
     // Perf sample buffer (ms) — zero alloc after construct.
     this._sampleStart = 0;
+    this._rafTimes = [];
+    const gl = this.ctx.renderer.getContext();
+    const debug = gl.getExtension('WEBGL_debug_renderer_info');
+    this.rendererName = debug ? gl.getParameter(debug.UNMASKED_RENDERER_WEBGL) : gl.getParameter(gl.RENDERER);
+    this.gpuTimer = new GpuTimer(gl, config.benchmark);
   }
 
   /**
@@ -143,6 +149,7 @@ export class Engine {
       }
       let dt = (ts - this._lastTs) / 1000;
       this._lastTs = ts;
+      if (this.ready) { this._rafTimes.push(dt * 1000); if (this._rafTimes.length > 512) this._rafTimes.shift(); }
       // Clamp spiral-of-death
       if (dt > 0.1) dt = 0.1;
       this._stepFrame(dt, false);
@@ -193,7 +200,9 @@ export class Engine {
     }
     this._ordered.length = 0;
     this._systems.clear();
+    this.ctx.session.dispose();
     this.ctx.events.clear();
+    this.gpuTimer.dispose();
     this.ctx.renderer.dispose();
     this._running = false;
     this._ready = false;
@@ -227,15 +236,18 @@ export class Engine {
     const time = ctx.time;
     const h = time.fixedDt;
 
-    time.dt = dt;
-    time.elapsed += dt;
-    time.accumulator += dt;
+    const active = ctx.session.simulating;
+    const simDt = active ? dt : 0;
+    time.dt = simDt;
+    time.elapsed += simDt;
+    time.accumulator += simDt;
 
     // fixedUpdate @ 120Hz
     // Cap steps per frame to avoid death spiral on long stalls.
     let steps = 0;
     const maxSteps = 8;
     while (time.accumulator >= h && steps < maxSteps) {
+      ctx.session.advance(h);
       for (const sys of this._ordered) {
         if (typeof sys.fixedUpdate === 'function') sys.fixedUpdate(h, ctx);
       }
@@ -249,20 +261,22 @@ export class Engine {
     }
 
     // alpha for render interpolation between physics ticks
-    time.alpha = time.accumulator / h;
+    time.alpha = active ? time.accumulator / h : 1;
 
     // update(dt)
     for (const sys of this._ordered) {
-      if (typeof sys.update === 'function') sys.update(dt, ctx);
+      if (typeof sys.update === 'function') sys.update(sys.constructor.id === 'ui' ? dt : simDt, ctx);
     }
 
     // lateUpdate(dt)
     for (const sys of this._ordered) {
-      if (typeof sys.lateUpdate === 'function') sys.lateUpdate(dt, ctx);
+      if (typeof sys.lateUpdate === 'function') sys.lateUpdate(simDt, ctx);
     }
 
     // render
+    this.gpuTimer.begin();
     this._render();
+    this.gpuTimer.end();
 
     ctx.input.endFrame();
     time.frame += 1;
