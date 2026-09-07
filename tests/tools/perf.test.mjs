@@ -6,7 +6,7 @@ const budget = {raf:20,gpu:8,draws:300};
 test('valid device sample passes',()=>assert.deepEqual(assess(good(),budget).failures,[]));
 test('demonstrated red: slow GPU, missed frames, excess draws and compiles all fail',()=>{
  const m=good();m.rafTimesMs.fill(40);m.gpuTimesMs.fill(12);m.drawCalls=500;m.shaderCompilesAfterReady=1;
- assert.equal(assess(m,budget).failures.length,4);
+ assert.equal(assess(m,budget).failures.length,5);
 });
 test('empty, NaN, negative and insufficient samples cannot produce a green',()=>{
  for(const x of [[],[1],Array(100).fill(NaN),Array(100).fill(-1)])assert.throws(()=>statistics(x,'test'),/invalid samples/);

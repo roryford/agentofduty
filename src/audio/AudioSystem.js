@@ -33,7 +33,7 @@ export class AudioSystem {
   }
 
   async init(ctx) {
-    this._rng = ctx.rng.fork();
+    this._rng = ctx.rng.fork('audio');
     this._lockstep =
       new URLSearchParams(window.location.search).get('lockstep') === '1' ||
       window.__LOCKSTEP__ === true;
@@ -49,6 +49,7 @@ export class AudioSystem {
     }
 
     this._unsubs.push(
+      ctx.events.on('session:reset', () => { this._lastEnemyFireT = -Infinity; this._rng = ctx.rng.fork('audio'); }),
       ctx.events.on('weapon:fire', (p) => this._gunshot(ctx, p)),
       ctx.events.on('bullet:impact', (p) => this._impact(ctx, p)),
       ctx.events.on('player:footstep', (p) => this._footstep(ctx, p)),

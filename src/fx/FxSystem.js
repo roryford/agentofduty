@@ -149,6 +149,7 @@ export class FxSystem {
     this._root.add(this._muzzle);
 
     this._unsubs.push(
+      ctx.events.on('session:reset', () => this.reset()),
       ctx.events.on('weapon:fire', (p) => this._onFire(ctx, p)),
       ctx.events.on('bullet:impact', (p) => this._onImpact(ctx, p)),
       ctx.events.on('bullet:tracer', (p) => this._onTracer(p)),
@@ -163,7 +164,7 @@ export class FxSystem {
   }
 
   _onFire(ctx, p) {
-    this.shake = Math.min(0.55, this.shake + 0.08);
+    if (p?.from === 'player') this.shake = Math.min(0.4, this.shake + 0.045);
     if (!p?.origin || !p?.dir) return;
     // Particles + shake only (no world-space muzzle plane — fights the wet specular).
     const col = p.weapon === 'enemy-smg' ? 0xff8844 : 0xffaa44;
@@ -315,13 +316,26 @@ export class FxSystem {
     // Camera shake
     if (this.shake > 0) {
       this.shake = Math.max(0, this.shake - dt * 2.5);
-      const s = this.shake * this.shake;
+      const s = ctx.session.settings.reducedMotion ? 0 : this.shake * this.shake;
       const t = ctx.time.elapsed * 40;
       const cam = ctx.camera;
       cam.position.x += Math.sin(t * 1.7) * s * 0.03;
       cam.position.y += Math.cos(t * 2.1) * s * 0.025;
       cam.position.z += Math.sin(t * 1.3) * s * 0.02;
     }
+  }
+
+  reset() {
+    this.shake = 0;
+    this._muzzleLife = 0;
+    this._muzzle.visible = false;
+    this._decalLife.fill(0);
+    this._particleLife.fill(0);
+    this._particlePos.fill(-1000);
+    this._points.visible = false;
+    for (const decal of this._decals) decal.visible = false;
+    for (const tracer of this._tracers) { tracer.life = 0; tracer.line.visible = false; }
+    this._decalCursor = this._pCursor = 0;
   }
 
   dispose() {

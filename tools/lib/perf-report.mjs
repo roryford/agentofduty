@@ -22,6 +22,7 @@ export function assess(metrics, budget) {
     if (!Number.isFinite(metrics[key]) || metrics[key] < 0) throw new Error(`Missing ${key}`);
   }
   if (raf.p95 > budget.raf) failures.push(`rAF p95 ${raf.p95.toFixed(2)} > ${budget.raf}ms`);
+  if (raf.p99 > (budget.p99 ?? 25)) failures.push(`rAF p99 ${raf.p99.toFixed(2)} > ${budget.p99 ?? 25}ms`);
   if (gpu.p50 > budget.gpu) failures.push(`GPU p50 ${gpu.p50.toFixed(2)} > ${budget.gpu}ms`);
   if (metrics.drawCalls > budget.draws) failures.push(`draw calls ${metrics.drawCalls} > ${budget.draws}`);
   if (metrics.shaderCompilesAfterReady !== 0) failures.push(`post-ready compiles ${metrics.shaderCompilesAfterReady}`);

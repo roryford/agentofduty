@@ -9,7 +9,7 @@ const budget = {
   gpu: positive(arg('gpu',8), 'gpu'),
   draws: positive(arg('max-draws',512), 'max-draws'),
 };
-const width = positive(arg('w',1920),'width'), height = positive(arg('h',1080),'height');
+const width = positive(arg('w',2560),'width'), height = positive(arg('h',1440),'height');
 const server = await serve(fileURLToPath(new URL('../dist',import.meta.url)));
 let browser;
 try {
@@ -19,7 +19,14 @@ try {
   page.on('pageerror', error => errors.push(error.message));
   await page.goto(server.url+'/?benchmark=1&seed=1', {waitUntil:'networkidle'});
   await page.waitForFunction(() => window.__READY__ === true, null, {timeout:30000});
-  await page.waitForFunction(() => window.__METRICS__().gpuTimesMs.length >= 240, null, {timeout:30000});
+  await page.waitForTimeout(1500);
+  await page.evaluate(() => {
+    const engine = window.__ENGINE__;
+    engine._rafTimes.length = 0;
+    engine.gpuTimer.samples.length = 0;
+    engine._frameTimeCount = 0; engine._frameTimeWrite = 0;
+  });
+  await page.waitForFunction(() => { const m = window.__METRICS__(); return m.gpuTimesMs.length >= 240 && m.rafTimesMs.length >= 240; }, null, {timeout:30000});
   const metrics = await page.evaluate(() => window.__METRICS__());
   if (errors.length) throw new Error(errors.join('\n'));
   const report = assess(metrics,budget);
