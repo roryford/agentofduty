@@ -25,8 +25,7 @@ export class SkySystem {
     this._geoms = [];
     this._mats = [];
     this.lightCount = LIGHT_SLOTS;
-    // Brighter night — still night, but readable
-    this.nightColor = 0x0c1018;
+    this.nightColor = 0x090e16;
     this._root = null;
   }
 
@@ -39,47 +38,39 @@ export class SkySystem {
     scene.add(this._root);
 
     scene.background = new THREE.Color(this.nightColor);
-    // Long fog — 120m street must read end-to-end
-    scene.fog = new THREE.FogExp2(this.nightColor, 0.0065);
+    scene.fog = new THREE.FogExp2(this.nightColor, 0.0078);
     ctx.renderer.setClearColor(this.nightColor, 1);
 
-    // Strong fill so props/facades aren't crushed to black
-    this._amb = new THREE.AmbientLight(0x4a5570, 1.05);
+    this._amb = new THREE.AmbientLight(0x503c2b, 0.3);
     this._root.add(this._amb);
 
-    this._hemi = new THREE.HemisphereLight(0x6a7aa0, 0x1c1610, 1.25);
+    this._hemi = new THREE.HemisphereLight(0x647ba0, 0x171310, 0.62);
     this._root.add(this._hemi);
 
     // Moon key (cool rim)
-    this._keyDir = new THREE.DirectionalLight(0xa8bce0, 1.05);
-    this._keyDir.position.set(-30, 40, 20);
+    this._keyDir = new THREE.DirectionalLight(0x9fb8dc, 0.78);
+    this._keyDir.position.set(-28, 42, 24);
     this._root.add(this._keyDir);
 
     // Warm fill from opposite sky
-    this._fillDir = new THREE.DirectionalLight(0xffc090, 0.45);
+    this._fillDir = new THREE.DirectionalLight(0xf2b57d, 0.22);
     this._fillDir.position.set(25, 12, -15);
     this._root.add(this._fillDir);
 
-    // Street lamp positions along both curbs (matches world ROAD_HALF ~7)
-    const curb = 8.5;
-    const zs = [-50, -35, -20, -5, 12, 28, 45];
-    /** @type {{x:number,y:number,z:number,color:number,intensity:number,distance:number,decay:number}[]} */
-    const practicals = [];
-    let li = 0;
-    for (const z of zs) {
-      if (li >= LIGHT_SLOTS - 1) break;
-      const side = li % 2 === 0 ? -1 : 1;
-      practicals.push({
-        x: side * curb,
-        y: 5.2,
-        z,
-        color: li % 3 === 1 ? 0x90b0ff : 0xffc070,
-        intensity: li % 3 === 1 ? 45 : 55,
-        distance: 38,
-        decay: 1.6,
-      });
-      li += 1;
-    }
+    // Ten authored practicals support checkpoint, courtyard and extraction.
+    // The final two slots remain parked ballast so shader permutations are fixed.
+    const practicals = [
+      { x: -8.3, y: 5.2, z: 47, color: 0xf4b36f, intensity: 34, distance: 24, decay: 2 },
+      { x: 8.3, y: 5.2, z: 31, color: 0x82a9d8, intensity: 28, distance: 22, decay: 2 },
+      { x: 7.2, y: 4.4, z: 18, color: 0xf0a45e, intensity: 32, distance: 20, decay: 2 },
+      { x: -13, y: 4.5, z: 12, color: 0xf0a05c, intensity: 38, distance: 22, decay: 2 },
+      { x: -25, y: 4.2, z: -5, color: 0xe79354, intensity: 36, distance: 21, decay: 2 },
+      { x: -8.2, y: 5.1, z: -15, color: 0x789ed0, intensity: 26, distance: 21, decay: 2 },
+      { x: 8.2, y: 5.2, z: -29, color: 0x7eabd9, intensity: 28, distance: 22, decay: 2 },
+      { x: -8.2, y: 5.2, z: -43, color: 0xe9a260, intensity: 32, distance: 23, decay: 2 },
+      { x: -4.2, y: 4.0, z: -53, color: 0x78b6dc, intensity: 38, distance: 19, decay: 2 },
+      { x: 4.2, y: 4.0, z: -53, color: 0xf1b36f, intensity: 31, distance: 18, decay: 2 },
+    ];
     // Fill remaining slots as ballast
     while (practicals.length < LIGHT_SLOTS) {
       practicals.push({

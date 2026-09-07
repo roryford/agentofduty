@@ -114,7 +114,7 @@ export function bakeNormalFromHeight(size, heightFn, strength = 2.5) {
   return data;
 }
 
-/** Wet asphalt: dark, streaky, subtle grit + oil sheen variation in roughness. */
+/** Wet asphalt: dark aggregate with broad damp lanes and restrained reflections. */
 export function genAsphalt(size, seed) {
   const height = (u, v) => {
     const n = fbm2(u * 8, v * 8, seed, 5);
@@ -125,14 +125,14 @@ export function genAsphalt(size, seed) {
 
   const albedo = bakeMap(size, (u, v) => {
     const h = height(u, v);
-    // Night wet asphalt that still catches practicals (0.08–0.28)
-    const base = 0.09 + h * 0.14;
+    // Night asphalt retains enough diffuse value for enemy/cover silhouettes.
+    const base = 0.075 + h * 0.105;
     const oil = fbm2(u * 2.5, v * 2.5, seed + 11, 3);
     const cool = oil > 0.62 ? 0.04 : 0;
     const r = base * 0.9 + cool * 0.2;
     const g = base * 0.95 + cool * 0.35;
     const b = base + cool * 0.5;
-    const wear = Math.pow(fbm2(u * 6, v * 6, seed + 19, 3), 3) * 0.12;
+    const wear = Math.pow(fbm2(u * 6, v * 6, seed + 19, 3), 3) * 0.08;
     // Aggregate chips (light flecks)
     const chip = fbm2(u * 50, v * 50, seed + 31, 1);
     const fleck = chip > 0.82 ? 0.08 : 0;
@@ -141,11 +141,11 @@ export function genAsphalt(size, seed) {
 
   const rough = bakeMap(size, (u, v) => {
     const h = height(u, v);
-    // Wet: glossy puddles + medium wet field
+    // Broad damp variation; the world adds a few localized glossy puddles.
     const puddle = fbm2(u * 1.8, v * 1.8, seed + 23, 3);
-    let ro = 0.42 - h * 0.14;
-    if (puddle > 0.55) ro = 0.08 + (1 - puddle) * 0.12;
-    ro = Math.min(0.6, Math.max(0.06, ro));
+    let ro = 0.78 - h * 0.14;
+    if (puddle > 0.6) ro = 0.38 + (1 - puddle) * 0.22;
+    ro = Math.min(0.86, Math.max(0.34, ro));
     return [ro, ro, ro, 1];
   });
 
