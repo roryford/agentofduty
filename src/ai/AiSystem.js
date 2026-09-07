@@ -627,7 +627,7 @@ export class AiSystem {
     enemy.muzzle.visible = true;
     ctx.events.emit('weapon:fire', {
       from: enemy.id,
-      weapon: 'enemy-rifle',
+      weapon: 'enemy-smg',
       origin: this._origin,
       dir: this._dir,
       seed,
