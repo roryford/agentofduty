@@ -2,29 +2,129 @@
   "seed": 1,
   "width": 1280,
   "height": 720,
+  "staged": true,
   "shots": [
     {
       "name": "boot-street",
       "frame": 0,
+      "description": "Checkpoint approach from spawn",
       "file": "boot-street.png",
-      "bytes": 1134610,
-      "drawCalls": 393,
+      "bytes": 516904,
+      "drawCalls": 425,
       "shaderCompilesAfterReady": 0
     },
     {
       "name": "enemy-approach",
       "frame": 90,
+      "description": "Squad approach and cover silhouettes",
       "file": "enemy-approach.png",
-      "bytes": 1137311,
-      "drawCalls": 394,
+      "bytes": 517073,
+      "drawCalls": 426,
       "shaderCompilesAfterReady": 0
     },
     {
       "name": "combat",
-      "frame": 130,
+      "frame": 20,
+      "pose": "fire",
+      "description": "Hip-fire rifle and muzzle response",
       "file": "combat.png",
-      "bytes": 1177527,
-      "drawCalls": 401,
+      "bytes": 531220,
+      "drawCalls": 435,
+      "shaderCompilesAfterReady": 0
+    },
+    {
+      "name": "ads",
+      "frame": 20,
+      "pose": "ads",
+      "description": "Clear sight line through optic",
+      "file": "ads.png",
+      "bytes": 503885,
+      "drawCalls": 423,
+      "shaderCompilesAfterReady": 0
+    },
+    {
+      "name": "reload",
+      "frame": 40,
+      "pose": "reload",
+      "description": "Magazine and support hand at reload midpoint",
+      "file": "reload.png",
+      "bytes": 518124,
+      "drawCalls": 430,
+      "shaderCompilesAfterReady": 0
+    },
+    {
+      "name": "courtyard",
+      "frame": 0,
+      "encounter": 1,
+      "description": "Lantern Court checkpoint and flank route",
+      "file": "courtyard.png",
+      "bytes": 633829,
+      "drawCalls": 197,
+      "shaderCompilesAfterReady": 0
+    },
+    {
+      "name": "extraction",
+      "frame": 0,
+      "encounter": 2,
+      "description": "Northern extraction encounter",
+      "file": "extraction.png",
+      "bytes": 698461,
+      "drawCalls": 283,
+      "shaderCompilesAfterReady": 0
+    },
+    {
+      "name": "damage",
+      "frame": 1,
+      "pose": "damage",
+      "ui": true,
+      "description": "Actor-qualified damage feedback",
+      "file": "damage.png",
+      "bytes": 525819,
+      "drawCalls": 425,
+      "shaderCompilesAfterReady": 0
+    },
+    {
+      "name": "death",
+      "frame": 10,
+      "pose": "death",
+      "ui": true,
+      "description": "Death view and checkpoint countdown",
+      "file": "death.png",
+      "bytes": 236247,
+      "drawCalls": 394,
+      "shaderCompilesAfterReady": 0
+    },
+    {
+      "name": "ready",
+      "frame": 0,
+      "pose": "ready",
+      "ui": true,
+      "description": "Mission briefing and safe entry",
+      "file": "ready.png",
+      "bytes": 446218,
+      "drawCalls": 425,
+      "shaderCompilesAfterReady": 0
+    },
+    {
+      "name": "pause-settings",
+      "frame": 0,
+      "pose": "pause",
+      "ui": true,
+      "description": "Pause menu and controls settings",
+      "file": "pause-settings.png",
+      "bytes": 456642,
+      "drawCalls": 425,
+      "shaderCompilesAfterReady": 0
+    },
+    {
+      "name": "victory",
+      "frame": 0,
+      "pose": "victory",
+      "ui": true,
+      "description": "Extraction completion and restart",
+      "file": "victory.png",
+      "bytes": 453255,
+      "drawCalls": 425,
       "shaderCompilesAfterReady": 0
     }
   ]

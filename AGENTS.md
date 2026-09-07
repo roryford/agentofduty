@@ -27,6 +27,9 @@ node tools/route.mjs  # real-input automated mission route
 node tools/diff.mjs  # pixel-diff captures/ vs baselines/ (exit nonzero on fail)
 ```
 
+The full test gate includes a real Blender exporter regression: provide `blender`
+on PATH or set `BLENDER` to its executable. Shipped GLBs do not need rebaking.
+
 Gate for handoffs: **`npm run gate` green**, then **`node tools/diff.mjs`** if
 baselines are locked (update baselines only on intentional visual changes).
 
@@ -137,11 +140,11 @@ If a GLB fails to load, systems fall back to procedural meshes.
 
 ## Play / controls
 
-- Click canvas → pointer lock  
-- WASD move · Shift sprint · C/Ctrl crouch · Space jump/vault · LMB fire · **RMB or E = ADS** (holo reticle) · R reload  
+- Click canvas → pointer lock
+- WASD move · Shift sprint · C/Ctrl crouch · Space jump/vault · LMB fire · **RMB or E = ADS** (holo reticle) · R reload
 - Escape/blur pauses combat and clears held input.
 - Death → KIA overlay → whole-checkpoint restore ~2.5s.
-- Clear hostiles and reach each rally point; final extraction requires an 8-second hold.  
+- Clear hostiles and reach each rally point; final extraction requires an 8-second hold.
 - Enemies: always full mesh (no far “blob” LOD)
 
 ## Baselines

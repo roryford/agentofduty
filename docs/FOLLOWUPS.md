@@ -1,30 +1,24 @@
-# Optional follow-ups (not blocking wrap)
+# Player-led follow-ups after Nightfall
 
-Prioritized ideas if work continues. None of these are required for the current gate.
+The local upgrade delivers a complete three-encounter mission, checkpoint resets,
+cover and burst AI, crouch/vault, rifle handling, authored district, directional
+feedback, settings, and repeatable verification. These are remaining quality
+opportunities, not claims established by the automated route.
 
-## High value
+1. **Human pacing and handling.** Grade sustained recoil control, ADS comfort,
+   enemy pressure, navigation and the proposed 5–8 minute duration with unfamiliar
+   players. The automated controller reads exact target positions and cannot
+   establish any of those outcomes.
+2. **Character and hand animation.** Replace direct-pivot articulation with a
+   coherent original or licensed animation set if the art scope expands. Improve
+   hand grips, reload contact and locomotion blending before adding archetypes.
+3. **World readability.** Tune dark silhouettes, window dominance and material
+   repetition against the complete capture manifest and real play. Contact
+   shadows and extra normal detail must justify their measured GPU cost.
+4. **Audio mix.** Listen to the directional procedural cues on headphones and
+   speakers, particularly enemy fire versus rain, reload, near misses and death.
+   Numeric panning checks do not grade subjective mix quality.
 
-1. ~~**Viewmodel polish**~~ — done: dark-green glove, hip/ADS, FOV, spread, **holo optic + reticle**, coord docs.
-2. ~~**Enemy LODs / silhouettes**~~ — LO blobs removed; **always full mesh** (user prefer).
-3. **True AO / contact shadows** — quality bar still lists them; expensive — only if budget allows.
-4. ~~**Audio mix**~~ — done (distance, surface impacts, enemy rate-limit + quieter).
-5. ~~**Metrics honesty**~~ — done (`drawCallsWorld` / `drawCallsView` / total).
-
-## Medium
-
-6. **More Imagine material maps** — normal maps (not just albedo/roughness) baked into GLBs.
-7. **Street variety** — alley spur, prop scatter seed table, fewer repeated dumpster yaws.
-8. **Damage feedback** — directional damage vignette, hit direction indicator.
-9. **Save baselines in CI** — gate job: build + assets cache + capture + diff + perf.
-
-## Low / later
-
-10. Expand beyond one archetype or one weapon (only after the quality bar still holds).
-11. Mobile / touch controls.
-12. Daylight variant (explicitly out of brief unless brief changes).
-
-## Non-goals (unless brief changes)
-
-- Daylight primary look
-- Many weapons / multiplayer
-- New runtime npm dependencies beyond `three`
+The current scope remains one rifle, one soldier archetype, WebGL2 and Three.js
+as the only runtime dependency. Multiplayer, progression, mobile controls,
+additional weapons, paid asset packs and public deployment are separate work.

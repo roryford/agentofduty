@@ -26,6 +26,10 @@ and reload. Break sight and take cover to regenerate health after four seconds.
 
 ## Quality gate
 
+Install Blender on PATH (or set `BLENDER` to its executable) for the exporter
+regression test. Rebuilding the shipped meshes remains optional. Hardware Chrome
+and GPU timer queries are required for the device performance gate.
+
 ```bash
 npm run gate                  # tests + build + scenarios + 12 captures + hardware GPU perf
 node tools/diff.mjs            # vs locked baselines/
@@ -41,6 +45,7 @@ node tools/route.mjs           # automated real-input mission completion
 | [`docs/BRIEF.md`](docs/BRIEF.md) | Original product brief |
 | [`docs/LESSONS.md`](docs/LESSONS.md) | Lessons from the first full build session |
 | [`docs/UPGRADE_PLAN.md`](docs/UPGRADE_PLAN.md) | Upgrade scope, evidence and remaining acceptance items |
+| [`docs/UPGRADE_REPORT.md`](docs/UPGRADE_REPORT.md) | Local delivery evidence and limitations |
 | [`docs/FOLLOWUPS.md`](docs/FOLLOWUPS.md) | Optional next steps |
 
 ## Hybrid art

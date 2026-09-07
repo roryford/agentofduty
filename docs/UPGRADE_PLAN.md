@@ -1,6 +1,7 @@
 # Agent of Duty — full upgrade plan
 
-Status: implemented locally on codex/upgrade; final review and stability verification in progress.
+Status: prepared locally on codex/upgrade; full gate and stability verification passed.
+Final revision review is tracked in the session delivery.
 Publishing is pending explicit GitHub approval after automatic approval review rejected the push.
 Assessment: 2026-09-07, current local main checkout.
 
@@ -331,5 +332,5 @@ packages, paid assets, multiplayer or public deployment were added.
 Independent review found and drove fixes for simulation transition/liveness,
 death audio, model axes and attachment transforms, hidden window panes, enemy
 reload interruption, corpse cues, collision-constrained AI/vault motion, and
-long-run rifle cadence. Final current-head verdict and soak result are recorded
-in the session delivery report.
+long-run rifle cadence. The complete soak and final gate evidence are recorded in UPGRADE_REPORT.md;
+the exact final-head review verdict is recorded in the session delivery.
