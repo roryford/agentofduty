@@ -10,6 +10,8 @@ import { SURFACES } from './surfaces.js';
  *   setEnabled(id, bool)
  *   setBox(id, minx..maxz)          // relocate dynamic AABB (enemy)
  *   raycast(ox,oy,oz, dx,dy,dz, maxDist, mask) -> hit | null
+ *   raycastBoxDistance(ox,oy,oz, dx,dy,dz, maxDist, bounds) -> distance | Infinity
+ *   capsuleBlocked(px,py,pz, radius, halfHeight, mask) -> boolean
  *   moveCapsule(px,py,pz, radius, halfHeight, vx,vy,vz, h, mask) -> void (writes into out)
  *   out: { x,y,z, grounded, hitCeiling }
  *   getCollider(id)
@@ -226,6 +228,57 @@ export class PhysicsSystem {
     h.surface = this._surface[bestId];
     h.userData = this._userData[bestId];
     return h;
+  }
+
+  /** Return the first distance along a ray to arbitrary world-space bounds. */
+  raycastBoxDistance(ox, oy, oz, dx, dy, dz, maxDist, bounds) {
+    const len = Math.hypot(dx, dy, dz);
+    if (len < 1e-8) return Infinity;
+    const hit = rayAabb(
+      ox,
+      oy,
+      oz,
+      dx / len,
+      dy / len,
+      dz / len,
+      bounds.minx,
+      bounds.miny,
+      bounds.minz,
+      bounds.maxx,
+      bounds.maxy,
+      bounds.maxz,
+      maxDist,
+    );
+    return hit ? hit.t : Infinity;
+  }
+
+  /**
+   * Conservative vertical-capsule clearance check used for stance changes and
+   * validating vault landings. The narrow X/Z footprint avoids rejecting a
+   * legal stance because of a box touching the capsule's corner.
+   */
+  capsuleBlocked(px, py, pz, radius, halfHeight, mask = LAYER_STATIC, ignoreId = -1) {
+    const minx = px - radius * 0.9;
+    const maxx = px + radius * 0.9;
+    const miny = py - halfHeight - radius + 0.015;
+    const maxy = py + halfHeight + radius - 0.015;
+    const minz = pz - radius * 0.9;
+    const maxz = pz + radius * 0.9;
+    for (let i = 0; i < MAX_COLLIDERS; i++) {
+      if (!this._alive[i] || !this._enabled[i] || i === ignoreId) continue;
+      if ((this._layers[i] & mask) === 0) continue;
+      if (
+        minx < this._maxX[i] &&
+        maxx > this._minX[i] &&
+        miny < this._maxY[i] &&
+        maxy > this._minY[i] &&
+        minz < this._maxZ[i] &&
+        maxz > this._minZ[i]
+      ) {
+        return true;
+      }
+    }
+    return false;
   }
 
   /**

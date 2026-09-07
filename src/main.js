@@ -1,3 +1,4 @@
+import { MissionSystem } from './mission/MissionSystem.js';
 import { Engine } from './core/index.js';
 import { PhysicsSystem } from './physics/PhysicsSystem.js';
 import { MaterialsSystem } from './materials/MaterialsSystem.js';
@@ -68,6 +69,10 @@ function installHooks(engine, lockstep) {
       fixedFrame: ctx.time.fixedFrame,
       ready: engine.ready,
       frameTimesMs: times,
+      rafTimesMs: engine._rafTimes.slice(-240),
+      gpuTimesMs: engine.gpuTimer.samples.slice(-240),
+      renderer: engine.rendererName,
+      renderPixels: ctx.canvas.width * ctx.canvas.height,
       // Honest totals (world + viewmodel). Prefer these over renderer.info alone.
       drawCalls: draws.total,
       drawCallsWorld: draws.world,
@@ -89,8 +94,9 @@ function installHooks(engine, lockstep) {
 
   if (!lockstep) {
     window.addEventListener('resize', () => {
-      const c = engine.ctx.canvas;
-      engine.resize(c.clientWidth || window.innerWidth, c.clientHeight || window.innerHeight);
+      // The renderer assigns explicit CSS pixels to the canvas. Reading its
+      // previous client size here keeps an old viewport after panel resizing.
+      engine.resize(window.innerWidth, window.innerHeight);
     });
   }
 }
@@ -110,7 +116,7 @@ async function main() {
     canvas.height = opts.height;
   }
 
-  const config = {};
+  const config = { benchmark: new URLSearchParams(window.location.search).get('benchmark') === '1' };
   if (opts.seed !== undefined && !Number.isNaN(opts.seed)) {
     config.seed = opts.seed;
   }
@@ -131,12 +137,14 @@ async function main() {
     .add(PlayerSystem)
     .add(WeaponsSystem)
     .add(AiSystem)
+    .add(MissionSystem)
     .add(FxSystem)
     .add(AudioSystem)
     .add(UiSystem);
 
   installHooks(engine, opts.lockstep);
   await engine.init();
+  engine.ctx.events.emit('session:reset', { ...engine.ctx.get('mission').restore(true), full: true });
 
   // Force sized surface after init (init may have used clientWidth).
   if (opts.lockstep) {

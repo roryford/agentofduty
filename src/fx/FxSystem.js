@@ -7,7 +7,7 @@ import * as THREE from 'three';
  * Listens: weapon:fire, bullet:impact, bullet:tracer, player:land, actor:death
  */
 
-const MAX_DECALS = 48;
+const MAX_DECALS = 24;
 const MAX_PARTICLES = 64;
 const MAX_TRACERS = 16;
 
@@ -58,7 +58,7 @@ export class FxSystem {
     ctx.scene.add(this._root);
 
     // Impact marks: small dark discs (not full planes — avoids camera-facing cards)
-    const decalGeom = new THREE.CircleGeometry(0.09, 10);
+    const decalGeom = new THREE.CircleGeometry(0.028, 10);
     this._geoms.push(decalGeom);
 
     this._decals = [];
@@ -91,9 +91,18 @@ export class FxSystem {
     this._particlePos = positions;
     this._particleVel = new Float32Array(MAX_PARTICLES * 3);
 
+    const spritePixels = new Uint8Array(16 * 16 * 4);
+    for (let y=0;y<16;y++) for (let x=0;x<16;x++) {
+      const i=(y*16+x)*4, radius=Math.hypot((x-7.5)/7.5,(y-7.5)/7.5);
+      spritePixels[i]=spritePixels[i+1]=spritePixels[i+2]=255;
+      spritePixels[i+3]=Math.round(Math.max(0,1-radius)**2*255);
+    }
+    this._particleSprite=new THREE.DataTexture(spritePixels,16,16,THREE.RGBAFormat);
+    this._particleSprite.needsUpdate=true;
     const pMat = new THREE.PointsMaterial({
+      map: this._particleSprite,
       color: 0xffcc88,
-      size: 0.05,
+      size: 0.035,
       transparent: true,
       opacity: 0.9,
       depthWrite: false,
@@ -149,6 +158,7 @@ export class FxSystem {
     this._root.add(this._muzzle);
 
     this._unsubs.push(
+      ctx.events.on('session:reset', () => this.reset()),
       ctx.events.on('weapon:fire', (p) => this._onFire(ctx, p)),
       ctx.events.on('bullet:impact', (p) => this._onImpact(ctx, p)),
       ctx.events.on('bullet:tracer', (p) => this._onTracer(p)),
@@ -163,7 +173,7 @@ export class FxSystem {
   }
 
   _onFire(ctx, p) {
-    this.shake = Math.min(0.55, this.shake + 0.08);
+    if (p?.from === 'player') this.shake = Math.min(0.4, this.shake + 0.045);
     if (!p?.origin || !p?.dir) return;
     // Particles + shake only (no world-space muzzle plane — fights the wet specular).
     const col = p.weapon === 'enemy-smg' ? 0xff8844 : 0xffaa44;
@@ -187,8 +197,8 @@ export class FxSystem {
     ) {
       return;
     }
-    // Particle bursts only — projected discs were reading as large floating cards
-    // under wet-specular lighting. Decal pool kept for a later contact-shadow pass.
+    // Small marks are aligned to the actual static hit normal, never camera-facing.
+    if (!['flesh','water','foliage','fabric'].includes(surface)) this._spawnDecal(point,normal,surface);
     const color = surface === 'flesh' ? 0xaa2222 : surface === 'metal' ? 0xccccaa : 0x888870;
     this._burst(point.x, point.y, point.z, color, surface === 'flesh' ? 12 : 5);
     if (surface === 'flesh') {
@@ -315,7 +325,7 @@ export class FxSystem {
     // Camera shake
     if (this.shake > 0) {
       this.shake = Math.max(0, this.shake - dt * 2.5);
-      const s = this.shake * this.shake;
+      const s = ctx.session.settings.reducedMotion ? 0 : this.shake * this.shake;
       const t = ctx.time.elapsed * 40;
       const cam = ctx.camera;
       cam.position.x += Math.sin(t * 1.7) * s * 0.03;
@@ -324,11 +334,25 @@ export class FxSystem {
     }
   }
 
+  reset() {
+    this.shake = 0;
+    this._muzzleLife = 0;
+    this._muzzle.visible = false;
+    this._decalLife.fill(0);
+    this._particleLife.fill(0);
+    this._particlePos.fill(-1000);
+    this._points.visible = false;
+    for (const decal of this._decals) decal.visible = false;
+    for (const tracer of this._tracers) { tracer.life = 0; tracer.line.visible = false; }
+    this._decalCursor = this._pCursor = 0;
+  }
+
   dispose() {
     for (const u of this._unsubs) u();
     this._unsubs.length = 0;
     if (this._root) this._root.parent?.remove(this._root);
     for (const g of this._geoms) g.dispose();
     for (const m of this._mats) m.dispose();
+    this._particleSprite?.dispose();
   }
 }

@@ -15,14 +15,20 @@ One weapon, one enemy archetype. Cohesion over feature count.
 
 ```bash
 npm install
-npx playwright install chromium   # once, for capture/perf tools
+npx playwright install chrome     # once, hardware Chrome for capture/perf/play tools
 
 npm run dev          # local play
 npm run build        # vite → dist/
 npm run assets       # Blender headless → public/models/*.glb (build-time only)
-npm run gate         # build + capture + perf
+npm run test         # node behavioural and verifier tests
+npm run gate         # tests + build + scenarios + capture + real-GPU perf
+npm run play -- --seconds 600  # real-input stability soak
+node tools/route.mjs  # real-input automated mission route
 node tools/diff.mjs  # pixel-diff captures/ vs baselines/ (exit nonzero on fail)
 ```
+
+The full test gate includes a real Blender exporter regression: provide `blender`
+on PATH or set `BLENDER` to its executable. Shipped GLBs do not need rebaking.
 
 Gate for handoffs: **`npm run gate` green**, then **`node tools/diff.mjs`** if
 baselines are locked (update baselines only on intentional visual changes).
@@ -62,6 +68,7 @@ Do not add runtime packages without an explicit decision to expand the brief.
 | fx | `src/fx/` | tracers, particles, shake |
 | audio | `src/audio/` | procedural WebAudio |
 | ui | `src/ui/` | HUD |
+| mission | `src/mission/` | objectives, checkpoints, completion |
 
 Contract:
 
@@ -86,9 +93,13 @@ Rules:
 
 `weapon:fire` · `weapon:reload` · `weapon:shell` · `bullet:impact` · `bullet:tracer` ·
 `damage:dealt` · `damage:taken` · `actor:death` · `player:land` · `player:footstep` ·
-`player:state` · `explosion` · `resize`
+`player:state` · `explosion` · `resize` · `combat:hit` · `session:state` ·
+`session:reset` · `mission:objective`
 
-- `damage:dealt` is handled by the **target**, never the attacker.
+- `damage:dealt` is an immutable request handled by the **target**, never the attacker.
+- The target emits `combat:hit` and actor-qualified `damage:taken`; see BRIEF for payloads.
+- `ctx.session` owns ready/play/pause/death/complete and checkpoint reset.
+- Named `ctx.rng.fork(name)` streams isolate gameplay from decorative randomness.
 - New event ⇒ new registry row in the same commit (update BRIEF if needed).
 
 ### Surfaces
@@ -129,9 +140,11 @@ If a GLB fails to load, systems fall back to procedural meshes.
 
 ## Play / controls
 
-- Click canvas → pointer lock  
-- WASD move · Shift sprint · Space jump · LMB fire · **RMB or E = ADS** (holo reticle) · R reload  
-- Death → KIA overlay → auto-respawn ~2.5s  
+- Click canvas → pointer lock
+- WASD move · Shift sprint · C/Ctrl crouch · Space jump/vault · LMB fire · **RMB or E = ADS** (holo reticle) · R reload
+- Escape/blur pauses combat and clears held input.
+- Death → KIA overlay → whole-checkpoint restore ~2.5s.
+- Clear hostiles and reach each rally point; final extraction requires an 8-second hold.
 - Enemies: always full mesh (no far “blob” LOD)
 
 ## Baselines
@@ -140,6 +153,38 @@ Locked shots live in `baselines/`. After intentional visual changes:
 
 ```bash
 npm run gate
-cp captures/boot-street.png captures/enemy-approach.png captures/combat.png captures/manifest.json baselines/
+node --input-type=module -e "import fs from 'node:fs'; const m=JSON.parse(fs.readFileSync('captures/manifest.json')); for(const s of m.shots) fs.copyFileSync('captures/'+s.file,'baselines/'+s.file); fs.copyFileSync('captures/manifest.json','baselines/manifest.json');"
 node tools/diff.mjs
 ```
+
+## Upgrade lifecycle and resolved events
+
+The approved upgrade plan is `docs/UPGRADE_PLAN.md`. Core owns `ctx.session`:
+ready / playing / paused / dead / complete. The engine freezes simulation on
+ready/pause/complete while menus render. Session alone owns death/retry timing.
+`session:reset` restores an entire encounter; systems reset their owned state.
+
+Additional events: `session:state {state,previous}`, `session:reset
+{full,spawn,enemySpawns,encounter}`, `mission:objective {index,name}`, and
+`combat:hit {target,from,amount,health,headshot,killed,point}`. `damage:taken`
+includes `target`; only target=player drives player hurt feedback.
+`damage:dealt` is a request; listeners must never mutate it. Targets emit a
+resolved `combat:hit`. `weapon:fire` includes the source actor in `from`.
+
+Real GPU verification uses installed Chrome (ANGLE Metal on macOS). Software
+rendering is not accepted as evidence of device performance. Pixel output is
+capped by total pixels in core resize; render systems must not override it.
+
+The performance budget is centralized in src/core/config.js: CPU submission
+p95 16.67ms, GPU p50 8ms, display rAF p95 17.5ms / p99 25ms. The display
+p95 tolerance accounts for 60Hz timestamp rounding; it is distinct from CPU
+cost. The probe excludes startup and requires fixed-tick progress.
+
+## Practice and regression checks
+
+- Briefing/pause: select Explore / no enemies, then a starting area. Mode/area
+  changes restart the session; Reset Position returns to that area.
+- `node tools/practice.mjs` exercises actual menu, movement, ADS/fire and reload
+  inputs across three aspect ratios; included in `npm run gate`.
+- Practice keeps magazine/reload behavior with unlimited reserve; no enemies or
+  automatic objective progression. Returning to Mission resets its first stage.

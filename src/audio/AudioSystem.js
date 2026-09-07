@@ -1,3 +1,4 @@
+import { panFor, audibleState, segmentDistance } from './spatial.js';
 /**
  * Procedural WebAudio SFX — no external samples.
  *
@@ -29,11 +30,15 @@ export class AudioSystem {
     this._unlocked = false;
     this._lockstep = false;
     this._lastEnemyFireT = 0;
+    this._noiseCache = new Map();
+    this._listenerYaw = 0;
+    this._lastNearMiss = -Infinity;
+    this._pulseLeft = 0;
     this._listenerPos = { x: 0, y: 1.6, z: 0 };
   }
 
   async init(ctx) {
-    this._rng = ctx.rng.fork();
+    this._rng = ctx.rng.fork('audio');
     this._lockstep =
       new URLSearchParams(window.location.search).get('lockstep') === '1' ||
       window.__LOCKSTEP__ === true;
@@ -44,12 +49,15 @@ export class AudioSystem {
         window.removeEventListener('pointerdown', unlock);
         window.removeEventListener('keydown', unlock);
       };
+      this._unlock = unlock;
       window.addEventListener('pointerdown', unlock);
       window.addEventListener('keydown', unlock);
     }
 
     this._unsubs.push(
+      ctx.events.on('session:reset', () => { this._lastEnemyFireT = -Infinity; this._lastNearMiss = -Infinity; this._pulseLeft = 0; this._rng = ctx.rng.fork('audio'); }),
       ctx.events.on('weapon:fire', (p) => this._gunshot(ctx, p)),
+      ctx.events.on('bullet:tracer', p => this._nearMiss(ctx, p)),
       ctx.events.on('bullet:impact', (p) => this._impact(ctx, p)),
       ctx.events.on('player:footstep', (p) => this._footstep(ctx, p)),
       ctx.events.on('player:land', (p) => this._land(p)),
@@ -64,9 +72,43 @@ export class AudioSystem {
     );
   }
 
+  fixedUpdate(h, ctx) {
+    if (!ctx.session.playing || !this._ctx) return;
+    this._pulseLeft -= h;
+    if (this._pulseLeft > 0) return;
+    const mission = ctx.peek('mission');
+    const active = mission?.alive > 0;
+    this._pulseLeft = active ? .75 : 1.5;
+    // Restrained score pulse: encounter pressure and quiet movement use distinct tempos.
+    const ac = this._ctx, t = ac.currentTime;
+    const oscillator = ac.createOscillator(), gain = ac.createGain();
+    oscillator.type = 'sine';
+    oscillator.frequency.setValueAtTime(active ? 55 : 41.2, t);
+    gain.gain.setValueAtTime(0, t);
+    gain.gain.linearRampToValueAtTime(active ? .022 : .012, t + .025);
+    gain.gain.exponentialRampToValueAtTime(.0001, t + .55);
+    oscillator.connect(gain); gain.connect(this._master);
+    oscillator.onended = () => { oscillator.disconnect(); gain.disconnect(); };
+    oscillator.start(t); oscillator.stop(t + .6);
+  }
+
+  _nearMiss(ctx, p) {
+    if (!p?.from || !p?.to || !this._ctx || !ctx.session.playing) return;
+    const originDistance = Math.hypot(p.from.x-this._listenerPos.x,p.from.y-this._listenerPos.y,p.from.z-this._listenerPos.z);
+    if (originDistance < 2 || segmentDistance(this._listenerPos,p.from,p.to) > 1.25 || ctx.time.elapsed-this._lastNearMiss < .18) return;
+    this._lastNearMiss = ctx.time.elapsed;
+    const ac=this._ctx,t=ac.currentTime,source=ac.createBufferSource(),filter=ac.createBiquadFilter(),gain=ac.createGain();
+    source.buffer=this._noise(.06,false); filter.type='highpass'; filter.frequency.value=2800;
+    gain.gain.setValueAtTime(.055,t); gain.gain.exponentialRampToValueAtTime(.001,t+.06);
+    source.connect(filter); filter.connect(gain); const output=this._spatial(gain,p.from);
+    source.onended=()=>{source.disconnect();filter.disconnect();gain.disconnect();output.disconnect();}; source.start(t);
+  }
+
   lateUpdate(_dt, ctx) {
+    this.setMaster(audibleState(ctx.session.state) ? ctx.session.settings.volume : 0);
     // Track listener for distance mix (player may not be a dep — peek)
     const player = ctx.peek('player');
+    if (player) this._listenerYaw = player.yaw;
     if (player && player.eye) {
       this._listenerPos.x = player.eye.x;
       this._listenerPos.y = player.eye.y;
@@ -88,7 +130,19 @@ export class AudioSystem {
     this._master.gain.value = this._volume;
     this._master.connect(this._ctx.destination);
     this._unlocked = true;
-    if (this._ctx.state === 'suspended') this._ctx.resume();
+    const rain = this._ctx.createBufferSource();
+    rain.buffer = this._noise(2, false);
+    rain.loop = true;
+    const filter = this._ctx.createBiquadFilter();
+    filter.type = 'lowpass'; filter.frequency.value = 1800;
+    const ambience = this._ctx.createGain(); ambience.gain.value = 0.018;
+    rain.connect(filter); filter.connect(ambience); ambience.connect(this._master);
+    rain.start(); this._rain = rain;
+    // Allocate reusable shot/impact noise at audio unlock, outside firefights.
+    for (const duration of [.05,.06,.07,.08,.09,.1]) {
+      this._noise(duration, true); this._noise(duration, false);
+    }
+    if (this._ctx.state === 'suspended') this._ctx.resume().catch(error => console.warn('[audio] resume failed', error));
     return this._ctx;
   }
 
@@ -154,12 +208,7 @@ export class AudioSystem {
     const amp = base * distG;
 
     const dur = enemy ? 0.05 : 0.1;
-    const buf = ac.createBuffer(1, (ac.sampleRate * dur) | 0, ac.sampleRate);
-    const data = buf.getChannelData(0);
-    for (let i = 0; i < data.length; i++) {
-      const env = 1 - i / data.length;
-      data[i] = (this._rng.float() * 2 - 1) * env * env;
-    }
+    const buf = this._noise(dur, true);
     const src = ac.createBufferSource();
     src.buffer = buf;
     const bp = ac.createBiquadFilter();
@@ -171,7 +220,8 @@ export class AudioSystem {
     g.gain.exponentialRampToValueAtTime(0.001, t0 + dur);
     src.connect(bp);
     bp.connect(g);
-    g.connect(this._master);
+    const output = this._spatial(g, p?.origin || p?.point);
+    src.onended = () => { src.disconnect(); bp.disconnect(); g.disconnect(); output.disconnect(); };
     src.start(t0);
 
     if (!enemy) {
@@ -183,7 +233,8 @@ export class AudioSystem {
       og.gain.setValueAtTime(0.28, t0);
       og.gain.exponentialRampToValueAtTime(0.001, t0 + 0.1);
       osc.connect(og);
-      og.connect(this._master);
+      const oscillatorOutput = this._spatial(og, p?.origin || p?.point);
+      osc.onended = () => { osc.disconnect(); og.disconnect(); oscillatorOutput.disconnect(); };
       osc.start(t0);
       osc.stop(t0 + 0.12);
     } else {
@@ -196,7 +247,8 @@ export class AudioSystem {
       og.gain.setValueAtTime(Math.max(0.001, 0.06 * distG), t0);
       og.gain.exponentialRampToValueAtTime(0.001, t0 + 0.06);
       osc.connect(og);
-      og.connect(this._master);
+      const oscillatorOutput = this._spatial(og, p?.origin || p?.point);
+      osc.onended = () => { osc.disconnect(); og.disconnect(); oscillatorOutput.disconnect(); };
       osc.start(t0);
       osc.stop(t0 + 0.07);
     }
@@ -271,12 +323,7 @@ export class AudioSystem {
 
     amp *= distG;
 
-    const buf = ac.createBuffer(1, (ac.sampleRate * dur) | 0, ac.sampleRate);
-    const data = buf.getChannelData(0);
-    for (let i = 0; i < data.length; i++) {
-      const env = 1 - i / data.length;
-      data[i] = (this._rng.float() * 2 - 1) * env;
-    }
+    const buf = this._noise(dur, false);
     const src = ac.createBufferSource();
     src.buffer = buf;
     const f = ac.createBiquadFilter();
@@ -297,14 +344,16 @@ export class AudioSystem {
       og.gain.setValueAtTime(Math.max(0.001, amp * 0.35), t0);
       og.gain.exponentialRampToValueAtTime(0.001, t0 + dur);
       osc.connect(og);
-      og.connect(this._master);
+      const oscillatorOutput = this._spatial(og, p?.origin || p?.point);
+      osc.onended = () => { osc.disconnect(); og.disconnect(); oscillatorOutput.disconnect(); };
       osc.start(t0);
       osc.stop(t0 + dur + 0.02);
     }
 
     src.connect(f);
     f.connect(g);
-    g.connect(this._master);
+    const output = this._spatial(g, p?.origin || p?.point);
+    src.onended = () => { src.disconnect(); f.disconnect(); g.disconnect(); output.disconnect(); };
     src.start(t0);
   }
 
@@ -396,11 +445,35 @@ export class AudioSystem {
     osc.stop(t0 + dur + 0.02);
   }
 
+  _spatial(node, point) {
+    const pan = this._ctx.createStereoPanner();
+    pan.pan.value = panFor(point, this._listenerPos, this._listenerYaw);
+    node.connect(pan); pan.connect(this._master);
+    return pan;
+  }
+
+  _noise(duration, squared) {
+    const key = `${duration}:${squared}`;
+    if (this._noiseCache.has(key)) return this._noiseCache.get(key);
+    const ac = this._ctx;
+    const buffer = ac.createBuffer(1, Math.ceil(ac.sampleRate * duration), ac.sampleRate);
+    const data = buffer.getChannelData(0);
+    for (let i=0;i<data.length;i++) {
+      const envelope = duration > 1 ? 1 : 1-i/data.length;
+      data[i]=(this._rng.float()*2-1)*envelope*(squared ? envelope : 1);
+    }
+    this._noiseCache.set(key,buffer);
+    return buffer;
+  }
+
   dispose() {
+    if (this._unlock) { window.removeEventListener('pointerdown',this._unlock); window.removeEventListener('keydown',this._unlock); }
+    this._rain?.stop();
+    this._noiseCache.clear();
     for (const u of this._unsubs) u();
     this._unsubs.length = 0;
     if (this._ctx) {
-      this._ctx.close();
+      this._ctx.close().catch(error => console.warn('[audio] close failed',error));
       this._ctx = null;
     }
   }

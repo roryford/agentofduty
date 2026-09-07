@@ -2,6 +2,24 @@
 
 Preserved for future reference. This is the product/engineering brief the project was built against.
 
+## Approved upgrade amendment — September 2026
+
+The approved [upgrade plan](UPGRADE_PLAN.md) expands the street into three linked
+encounters: checkpoint, courtyard flank, and extraction hold. Keep one rifle,
+one articulated soldier archetype and Three.js as the only runtime dependency.
+Original locally authored Blender GLBs are permitted alongside runtime procedural
+fallbacks. The orchestrator owns core, composition, mission, UI/audio/FX and tools;
+combat and art workers own their explicitly assigned directories in isolated
+worktrees. This supersedes the original core read-only and runtime-only asset
+restrictions below. `npm run gate` now includes behavioral tests and real hardware
+GPU measurement; `node tools/play.mjs --seconds 600` adds the real-input soak.
+
+Session states are ready, playing, paused, dead and complete. Only playing/dead
+advance the simulation; death timers pause on focus loss. Checkpoint reset restores
+player, weapon, enemies and temporary effects together. `ctx.session.resume()`
+restores an interrupted death; it must not revive a dead player directly.
+
+
 ---
 
 Build a browser FPS on Three.js r180 + Vite (WebGL2). Zero external assets: every
@@ -63,14 +81,28 @@ Rules:
 
 Cross-subsystem coupling goes through ctx.events only. Canonical registry (a new
 event requires a new row in the same commit):
-  weapon:fire {weapon, origin, dir, seed} | weapon:reload {weapon, phase} |
-  weapon:shell {position, velocity} | bullet:impact {point, normal, surface,
-  incident, damage} | bullet:tracer {from, to, speed} | damage:dealt {target,
-  amount, headshot, killed, point} | damage:taken {amount, from, health} |
-  actor:death {actor, point, impulse} | player:land {velocity, surface} |
-  player:footstep {position, surface, running} | player:state {stance, sprinting,
-  sliding, ads} | explosion {position, radius, damage} | resize {width, height}
-damage:dealt is handled by the TARGET, never the attacker; emitters filter self.
+| Event | Payload |
+|---|---|
+| weapon:fire | `{weapon, from, origin, dir, seed}`; from is actor id |
+| weapon:reload | `{weapon, phase}`; phase start/end/cancel |
+| weapon:shell | `{position, velocity}` |
+| bullet:impact | `{point, normal, surface, incident, damage}` |
+| bullet:tracer | `{from, to, speed}`; from/to are positions |
+| damage:dealt | `{target, from, amount, headshot, point}`; immutable request |
+| damage:taken | `{target, from, amount, health, headshot, point}`; resolved by target |
+| combat:hit | `{target, from, amount, health, headshot, killed, point}`; resolved by target |
+| actor:death | `{actor, point, impulse}` |
+| player:land | `{velocity, surface}` |
+| player:footstep | `{position, surface, running}` |
+| player:state | `{stance, sprinting, sliding, ads, vaulting}` |
+| explosion | `{position, radius, damage}` |
+| resize | `{width, height}` |
+| session:state | `{state, previous}` |
+| session:reset | `{full, spawn:{x,y,z,yaw}, enemySpawns:[{x,z,role}], encounter, practice}` |
+| mission:objective | `{index, name}` |
+
+Damage is resolved by the target, never by the attacker. UI/audio observe resolved
+notifications, never infer the target from a health value or mutate requests.
 
 Surface tags stamped by physics on every collider, driving fx/audio/decals:
 concrete, metal, wood, dirt, sand, glass, water, foliage, fabric, flesh, rubber,
@@ -111,3 +143,23 @@ baseline shots is reverted, not debated.
 | 2026-07-28 | Auto-respawn on player death | Dead state with no respawn soft-locked play (felt like a hang) |
 
 Runtime dependency remains **three only**. Blender is a **build-time** tool (`npm run assets`).
+
+## Approved upgrade (2026-09-07)
+
+See UPGRADE_PLAN.md: one rifle, three connected encounters, a complete single-
+player night mission. Runtime remains Three.js only; 120 Hz simulation.
+
+Registry additions: session:state {state,previous}; session:reset
+{full,spawn,enemySpawns,encounter}; mission:objective {index,name}; combat:hit
+{target,from,amount,health,headshot,killed,point}. damage:taken gains target;
+weapon:fire gains from. Damage requests are immutable; combat:hit is the
+resolved notification. Core session owns pause/death/retry and checkpoint reset.
+
+## Exploration follow-up
+
+The briefing and pause menus offer Mission or Explore / no enemies. Explore
+selects any encounter start, suppresses enemy meshes/colliders and progression,
+keeps finite magazines with unlimited reserve, and provides Reset Position.
+Mode and area changes restart the session; returning to Mission starts stage one.
+Aim markers must match the camera aim through ADS movement/recoil and resizing.
+The authored perimeter blocks escape, with checkpoint recovery as a fallback.

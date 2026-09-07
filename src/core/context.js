@@ -3,6 +3,7 @@ import { createConfig } from './config.js';
 import { createEvents } from './events.js';
 import { createInput } from './input.js';
 import { createRng } from './rng.js';
+import { GameSession } from './session.js';
 import { createTime } from './time.js';
 
 /**
@@ -104,6 +105,7 @@ export function createContext({ canvas, config: configOverrides = {}, systems })
     input,
     time,
     rng,
+    session: new GameSession({ events, input, lockstep: config.lockstep || config.benchmark }),
     get(id) {
       const sys = systems.get(id);
       if (!sys) throw new Error(`System not found: ${id}`);
@@ -135,6 +137,9 @@ export function createContext({ canvas, config: configOverrides = {}, systems })
 export function resizeContext(ctx, w, h) {
   const width = Math.max(1, w | 0);
   const height = Math.max(1, h | 0);
+  const ratio = Math.min(window.devicePixelRatio || 1, ctx.config.maxPixelRatio,
+    Math.sqrt((ctx.config.maxRenderPixels || 3686400) / (width * height)));
+  ctx.renderer.setPixelRatio(ratio);
   ctx.renderer.setSize(width, height, false);
   const aspect = width / height;
   ctx.camera.aspect = aspect;

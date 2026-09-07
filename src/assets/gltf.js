@@ -26,6 +26,7 @@ export function loadModelTemplate(url) {
         const root = gltf.scene;
         root.traverse((o) => {
           if (o.isMesh) {
+            if (o.geometry) o.geometry.userData.sharedAsset = true;
             o.castShadow = false;
             o.receiveShadow = false;
             o.frustumCulled = true;
@@ -71,6 +72,32 @@ export function cloneModel(template) {
     }
   });
   return c;
+}
+
+/** Stable direct-pivot contract authored into enemy.glb. */
+export const ENEMY_ARTICULATION_GROUPS = Object.freeze([
+  'arm_l',
+  'arm_r',
+  'leg_l',
+  'leg_r',
+  'head',
+]);
+
+/**
+ * Resolve enemy articulation and attachment nodes without assuming root depth.
+ * Missing nodes remain null so older cached/fallback assets can degrade safely.
+ */
+export function resolveEnemyRig(root) {
+  const joints = {};
+  for (const name of ENEMY_ARTICULATION_GROUPS) {
+    joints[name] = root.getObjectByName(name) || null;
+  }
+  return {
+    root: root.getObjectByName('enemy_rig') || root,
+    joints,
+    weaponSocket: root.getObjectByName('weapon_socket') || null,
+    muzzleSocket: root.getObjectByName('muzzle_socket') || null,
+  };
 }
 
 /**
@@ -134,7 +161,7 @@ export function measure(obj) {
 export function disposeModelInstance(root) {
   root.traverse((o) => {
     if (o.isMesh) {
-      o.geometry?.dispose?.();
+      if (!o.geometry?.userData?.sharedAsset) o.geometry?.dispose?.();
       const mats = Array.isArray(o.material) ? o.material : [o.material];
       for (const m of mats) m?.dispose?.();
     }

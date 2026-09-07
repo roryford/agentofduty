@@ -42,7 +42,13 @@ export function createRng(seed) {
     bool() {
       return next() < 0.5;
     },
-    fork() {
+    fork(name) {
+      if (name !== undefined) {
+        if (typeof name !== 'string' || !name.length) throw new Error('RNG stream name must be nonempty');
+        let hash = seed ^ 0x811c9dc5;
+        for (let i = 0; i < name.length; i++) hash = Math.imul(hash ^ name.charCodeAt(i), 0x01000193);
+        return createRng(hash >>> 0);
+      }
       // Derive a child seed from the parent stream so forks are deterministic.
       const child = (Math.imul(s ^ 0x9e3779b9, 0x85ebca6b) ^ ((next() * 0x100000000) >>> 0)) >>> 0;
       return createRng(child || 1);

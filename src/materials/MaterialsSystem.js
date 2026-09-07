@@ -47,7 +47,7 @@ export class MaterialsSystem {
     this._register(
       'asphalt',
       genAsphalt(TEX_SIZE, (rng.next() * 1e9) | 0),
-      { metalness: 0, envIntensity: 0.55, repeat: 18, roughBase: 0.55 },
+      { metalness: 0, envIntensity: 0.42, repeat: 18, roughBase: 0.72, normalScale: 0.72 },
     );
     this._register(
       'concrete',
@@ -123,7 +123,7 @@ export class MaterialsSystem {
   /**
    * @param {string} tag
    * @param {{ albedo: Uint8ClampedArray, rough: Uint8ClampedArray, normal: Uint8ClampedArray, metalness?: number }} maps
-   * @param {{ metalness: number, envIntensity: number, repeat: number, roughBoost?: number }} opts
+   * @param {{ metalness: number, envIntensity: number, repeat: number, roughBoost?: number, normalScale?: number }} opts
    */
   _register(tag, maps, opts) {
     const albedo = this._tex(maps.albedo, true);
@@ -149,7 +149,7 @@ export class MaterialsSystem {
       map: albedo,
       roughnessMap: rough,
       normalMap: normal,
-      normalScale: new THREE.Vector2(1.15, 1.15),
+      normalScale: new THREE.Vector2(opts.normalScale ?? 1.15, opts.normalScale ?? 1.15),
       metalness: maps.metalness !== undefined ? maps.metalness : opts.metalness,
       roughness: roughMul,
       color: 0xffffff,

@@ -20,7 +20,7 @@ export class RenderSystem {
 
   constructor() {
     this.prewarmed = false;
-    this._exposure = 1.7;
+    this._exposure = 1.48;
   }
 
   async init(ctx) {
@@ -30,9 +30,6 @@ export class RenderSystem {
     r.toneMapping = THREE.ACESFilmicToneMapping;
     r.toneMappingExposure = this._exposure;
     r.shadowMap.enabled = false;
-
-    // Ensure pixel ratio cap (Retina)
-    r.setPixelRatio(Math.min(window.devicePixelRatio || 1, ctx.config.maxPixelRatio));
 
     // Prewarm materials against live scene (lights already added by sky)
     const materials = ctx.get('materials');
