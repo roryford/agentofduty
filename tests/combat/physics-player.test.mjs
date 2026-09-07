@@ -64,3 +64,86 @@ test('the player hurtbox tracks crouched dimensions', () => {
   assert.equal(box.minx, 2 - PLAYER_DIMENSIONS.radius);
   assert.equal(player.getEyePosition(new THREE.Vector3()).y, PLAYER_DIMENSIONS.crouchEye);
 });
+
+test('vault sweep rejects overhead geometry along an otherwise valid route', async () => {
+  const makePlayer = () => {
+    const player = new PlayerSystem();
+    player.position.set(0, PLAYER_DIMENSIONS.standHeight * 0.5, 0);
+    player.prevPosition.copy(player.position);
+    player._forward.set(0, 0, -1);
+    return player;
+  };
+  const addObstacle = (physics) => physics.addBox({
+    minx: -0.5, miny: 0, minz: -0.8, maxx: 0.5, maxy: 0.72, maxz: -0.4, layers: LAYER_STATIC,
+  });
+  const clearPhysics = await physicsWithFloor();
+  addObstacle(clearPhysics);
+  assert.equal(makePlayer()._tryStartVault({ events: { emit() {} } }, clearPhysics), true);
+
+  const blockedPhysics = await physicsWithFloor();
+  addObstacle(blockedPhysics);
+  blockedPhysics.addBox({
+    minx: -0.6, miny: 1.45, minz: -1.25, maxx: 0.6, maxy: 2.2, maxz: -0.05, layers: LAYER_STATIC,
+  });
+  assert.equal(makePlayer()._tryStartVault({ events: { emit() {} } }, blockedPhysics), false);
+});
+
+test('explicit pause clears input and exits pointer lock', () => {
+  const player = new PlayerSystem();
+  const canvas = {};
+  let resets = 0;
+  let pauses = 0;
+  let exits = 0;
+  const previousDocument = globalThis.document;
+  globalThis.document = { pointerLockElement: canvas, exitPointerLock: () => { exits += 1; } };
+  try {
+    player._pauseControl({
+      input: { reset: () => { resets += 1; } },
+      session: { pause: () => { pauses += 1; } },
+    });
+  } finally {
+    if (previousDocument === undefined) delete globalThis.document;
+    else globalThis.document = previousDocument;
+  }
+  assert.equal(resets, 1);
+  assert.equal(pauses, 1);
+  assert.equal(exits, 1);
+});
+
+test('menu Space keeps its native behavior until gameplay is active', () => {
+  const player = new PlayerSystem();
+  const listeners = {};
+  const previousWindow = globalThis.window;
+  const previousDocument = globalThis.document;
+  globalThis.window = {
+    addEventListener: (type, handler) => { listeners[type] = handler; },
+    removeEventListener() {},
+  };
+  globalThis.document = {
+    addEventListener: (type, handler) => { listeners[type] = handler; },
+    removeEventListener() {},
+    pointerLockElement: null,
+  };
+  const session = { playing: false, pause() {} };
+  const input = {
+    keys: {}, buttons: {}, mouse: { locked: false, dx: 0, dy: 0 }, look: { dx: 0, dy: 0 },
+    active: false, reset() {},
+  };
+  const canvas = { addEventListener() {}, removeEventListener() {} };
+  try {
+    player._bindInput({ input, canvas, session });
+    let prevented = 0;
+    listeners.keydown({ code: 'Space', preventDefault: () => { prevented += 1; } });
+    assert.equal(prevented, 0);
+    assert.equal(input.keys.Space, undefined);
+    session.playing = true;
+    listeners.keydown({ code: 'Space', preventDefault: () => { prevented += 1; } });
+    assert.equal(prevented, 1);
+    assert.equal(input.keys.Space, true);
+  } finally {
+    if (previousWindow === undefined) delete globalThis.window;
+    else globalThis.window = previousWindow;
+    if (previousDocument === undefined) delete globalThis.document;
+    else globalThis.document = previousDocument;
+  }
+});

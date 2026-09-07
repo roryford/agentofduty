@@ -19,6 +19,12 @@ const LAYER_STATIC = 1;
 const REGEN_DELAY = 4;
 const REGEN_RATE = 18;
 const VAULT_DURATION = 0.34;
+const VAULT_ARC = 1.0;
+const VAULT_COLLISION_HEIGHT = 1.15;
+
+function smoothstep(t) {
+  return t * t * (3 - 2 * t);
+}
 
 function sessionPlaying(ctx, lockstep) {
   return ctx.session ? ctx.session.playing === true : lockstep || ctx.input.active === true;
@@ -64,6 +70,7 @@ export class PlayerSystem {
     this._vaultTime = 0;
     this._vaultStart = new THREE.Vector3();
     this._vaultEnd = new THREE.Vector3();
+    this._vaultSample = new THREE.Vector3();
     this._unsubs = [];
   }
 
@@ -87,8 +94,13 @@ export class PlayerSystem {
     const input = ctx.input;
     const canvas = ctx.canvas;
     this._onKeyDown = (e) => {
-      if (e.code === 'Tab' || e.code === 'Space') e.preventDefault();
+      if (e.code === 'Escape') {
+        e.preventDefault();
+        this._pauseControl(ctx);
+        return;
+      }
       if (!sessionPlaying(ctx, this._lockstep)) return;
+      if (e.code === 'Tab' || e.code === 'Space') e.preventDefault();
       input.keys[e.code] = true;
     };
     this._onKeyUp = (e) => {
@@ -130,8 +142,7 @@ export class PlayerSystem {
     this._onPointerLockError = (event) => this._reportPointerLockFailure(ctx, event?.error);
     this._onBlur = () => {
       if (this._lockstep) return;
-      input.reset();
-      ctx.session?.pause?.();
+      this._pauseControl(ctx);
     };
     this._onVisibility = () => {
       if (document.hidden) this._onBlur();
@@ -153,9 +164,17 @@ export class PlayerSystem {
   }
 
   _reportPointerLockFailure(ctx, err) {
-    const message = `Pointer lock failed: ${err?.message || 'click the game to try again'}`;
+    const message = err?.message || ctx.session?.message ||
+      'This browser could not capture the mouse. Open the game in Chrome, then click Deploy again.';
     if (ctx.session) ctx.session.message = message;
     else console.warn(`[player] ${message}`);
+  }
+
+  _pauseControl(ctx) {
+    if (this._lockstep) return;
+    ctx.input.reset();
+    ctx.session?.pause?.();
+    if (document.pointerLockElement) document.exitPointerLock?.();
   }
 
   fixedUpdate(h, ctx) {
@@ -289,6 +308,8 @@ export class PlayerSystem {
     const fz = this._forward.z;
     const low = physics.raycast(this.position.x, feet + 0.48, this.position.z, fx, 0, fz, 0.85, LAYER_STATIC);
     if (!low) return false;
+    const obstacle = physics.getCollider(low.collider);
+    if (!obstacle || obstacle.maxy - feet > 0.9) return false;
     const high = physics.raycast(this.position.x, feet + 1.28, this.position.z, fx, 0, fz, 0.95, LAYER_STATIC);
     if (high) return false;
     const targetX = this.position.x + fx * (low.distance + 1.0);
@@ -298,13 +319,25 @@ export class PlayerSystem {
     const targetY = ground.pointY + PLAYER_DIMENSIONS.standHeight * 0.5;
     const halfHeight = PLAYER_DIMENSIONS.standHeight * 0.5 - this.capsuleRadius;
     if (physics.capsuleBlocked(targetX, targetY + 0.02, targetZ, this.capsuleRadius, halfHeight, LAYER_STATIC)) return false;
+    this._vaultStart.copy(this.position);
+    this._vaultEnd.set(targetX, targetY, targetZ);
+    const vaultHalfHeight = VAULT_COLLISION_HEIGHT * 0.5 - this.capsuleRadius;
+    for (let i = 1; i < 12; i++) {
+      this._sampleVault(i / 12, this._vaultSample);
+      if (physics.capsuleBlocked(
+        this._vaultSample.x,
+        this._vaultSample.y,
+        this._vaultSample.z,
+        this.capsuleRadius,
+        vaultHalfHeight,
+        LAYER_STATIC,
+      )) return false;
+    }
     this.vaulting = true;
     this.grounded = false;
     this.sprinting = false;
     this.ads = false;
     this._vaultTime = 0;
-    this._vaultStart.copy(this.position);
-    this._vaultEnd.set(targetX, targetY, targetZ);
     this.velocity.set(0, 0, 0);
     ctx.events.emit('player:state', { stance: this.stance, sprinting: false, sliding: false, ads: false, vaulting: true });
     return true;
@@ -314,8 +347,7 @@ export class PlayerSystem {
     this.prevPosition.copy(this.position);
     this._vaultTime += h;
     const t = Math.min(1, this._vaultTime / VAULT_DURATION);
-    this.position.lerpVectors(this._vaultStart, this._vaultEnd, t);
-    this.position.y += Math.sin(t * Math.PI) * 0.55;
+    this._sampleVault(t, this.position);
     if (t >= 1) {
       this.position.copy(this._vaultEnd);
       this.prevPosition.copy(this.position);
@@ -323,6 +355,14 @@ export class PlayerSystem {
       this.grounded = true;
       ctx.events.emit('player:land', { velocity: -3, surface: 'concrete' });
     }
+  }
+
+  _sampleVault(t, out) {
+    // Lift before advancing and finish the traverse before descending.
+    const travel = smoothstep(Math.max(0, Math.min(1, (t - 0.18) / 0.64)));
+    out.lerpVectors(this._vaultStart, this._vaultEnd, travel);
+    out.y += Math.sin(t * Math.PI) * VAULT_ARC;
+    return out;
   }
 
   _updateHealth(h) {
@@ -391,10 +431,11 @@ export class PlayerSystem {
 
   getHurtbox(out = this._hurtbox) {
     const r = this.capsuleRadius;
+    const height = this.vaulting ? VAULT_COLLISION_HEIGHT : this.capsuleHeight;
     out.minx = this.position.x - r;
     out.maxx = this.position.x + r;
-    out.miny = this.position.y - this.capsuleHeight * 0.5;
-    out.maxy = this.position.y + this.capsuleHeight * 0.5;
+    out.miny = this.position.y - height * 0.5;
+    out.maxy = this.position.y + height * 0.5;
     out.minz = this.position.z - r;
     out.maxz = this.position.z + r;
     return out;

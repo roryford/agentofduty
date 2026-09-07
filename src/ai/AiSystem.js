@@ -21,6 +21,11 @@ const FIRE_INTERVAL = 0.105;
 const RELOAD_TIME = 1.75;
 const CORPSE_TIME = 8;
 
+/** Heading that rotates a Three.js local -Z forward axis toward an X/Z vector. */
+export function headingForForwardMinusZ(dx, dz) {
+  return Math.atan2(-dx, -dz);
+}
+
 function normalizeWithSpread(forward, rightOffset, upOffset, spread, out) {
   let fx = forward.x;
   let fy = forward.y;
@@ -80,7 +85,7 @@ export function chooseCoverPoint(points, reservations, enemy, target, role = 'ho
 }
 
 /** Resolve an enemy shot against static cover and the player's live 3D bounds. */
-export function shotHitsPlayer(physics, player, origin, dir, maxDist = 80) {
+export function shotHitsPlayer(physics, player, origin, dir, maxDist = 80, out = null) {
   const bounds = player.getHurtbox();
   const playerDistance = physics.raycastBoxDistance(
     origin.x,
@@ -104,14 +109,12 @@ export function shotHitsPlayer(physics, player, origin, dir, maxDist = 80) {
     LAYER_STATIC,
   );
   if (cover && cover.distance < playerDistance) return null;
-  return {
-    distance: playerDistance,
-    point: {
-      x: origin.x + dir.x * playerDistance,
-      y: origin.y + dir.y * playerDistance,
-      z: origin.z + dir.z * playerDistance,
-    },
-  };
+  const result = out ?? { distance: 0, point: { x: 0, y: 0, z: 0 } };
+  result.distance = playerDistance;
+  result.point.x = origin.x + dir.x * playerDistance;
+  result.point.y = origin.y + dir.y * playerDistance;
+  result.point.z = origin.z + dir.z * playerDistance;
+  return result;
 }
 
 export class AiSystem {
@@ -136,6 +139,10 @@ export class AiSystem {
     this._aim = { x: 0, y: 0, z: -1 };
     this._eye = { x: 0, y: 0, z: 0 };
     this._tracerTo = { x: 0, y: 0, z: 0 };
+    this._shotResult = { distance: 0, point: { x: 0, y: 0, z: 0 } };
+    this._impactPoint = { x: 0, y: 0, z: 0 };
+    this._impactNormal = { x: 0, y: 1, z: 0 };
+    this._incident = { x: 0, y: 0, z: -1 };
   }
 
   get aliveCount() {
@@ -443,7 +450,7 @@ export class AiSystem {
           }
           break;
         case 'move':
-          this._moveEnemy(enemy, i, h, world);
+          this._moveEnemy(enemy, i, h, world, physics);
           if ((sees && distance < 22 && enemy.stateTime <= 0) || this._atGoal(enemy)) this._enterAim(enemy);
           break;
         case 'aim':
@@ -494,7 +501,7 @@ export class AiSystem {
           if (enemy.hasLastKnown) {
             enemy.goalX = enemy.lastKnown.x;
             enemy.goalZ = enemy.lastKnown.z;
-            this._moveEnemy(enemy, i, h, world);
+            this._moveEnemy(enemy, i, h, world, physics);
           }
           if (enemy.stateTime <= 0) {
             enemy.state = 'unaware';
@@ -504,7 +511,19 @@ export class AiSystem {
           break;
       }
 
-      if (dx * dx + dz * dz > 1e-5 && enemy.state !== 'move') enemy.group.rotation.y = Math.atan2(dx, dz);
+      const faceX = enemy.seesPlayer
+        ? player.position.x - enemy.position.x
+        : enemy.hasLastKnown
+          ? enemy.lastKnown.x - enemy.position.x
+          : 0;
+      const faceZ = enemy.seesPlayer
+        ? player.position.z - enemy.position.z
+        : enemy.hasLastKnown
+          ? enemy.lastKnown.z - enemy.position.z
+          : 0;
+      if (faceX * faceX + faceZ * faceZ > 1e-5 && enemy.state !== 'move') {
+        enemy.group.rotation.y = headingForForwardMinusZ(faceX, faceZ);
+      }
       this._syncCollider(physics, enemy);
     }
   }
@@ -519,7 +538,8 @@ export class AiSystem {
     enemy.state = 'move';
     enemy.stateTime = 0.7 + this._rng.float(0, 0.8);
     this._releaseCover(enemy);
-    const cover = chooseCoverPoint(world.coverPoints, this._reservations, enemy.position, player.position, enemy.role);
+    const knownTarget = enemy.seesPlayer ? player.position : enemy.hasLastKnown ? enemy.lastKnown : enemy.position;
+    const cover = chooseCoverPoint(world.coverPoints, this._reservations, enemy.position, knownTarget, enemy.role);
     if (cover) {
       enemy.coverId = cover.id;
       this._reservations.set(cover.id, enemy.id);
@@ -536,7 +556,7 @@ export class AiSystem {
     enemy.repathIn = 0;
   }
 
-  _moveEnemy(enemy, index, h, world) {
+  _moveEnemy(enemy, index, h, world, physics) {
     enemy.repathIn -= h;
     if (enemy.repathIn <= 0 || enemy.pathIndex >= enemy.pathLen) {
       enemy.repathIn = 0.4 + this._rng.float(0, 0.16);
@@ -580,9 +600,8 @@ export class AiSystem {
       moveX /= moveLen;
       moveZ /= moveLen;
       const speed = MOVE_SPEED * (enemy.role === 'flanker' ? 1.08 : enemy.role === 'holder' ? 0.82 : 1);
-      enemy.position.x += moveX * speed * h;
-      enemy.position.z += moveZ * speed * h;
-      enemy.group.rotation.y = Math.atan2(moveX, moveZ);
+      this._moveThroughWorld(enemy, physics, moveX * speed * h, moveZ * speed * h, h);
+      enemy.group.rotation.y = headingForForwardMinusZ(moveX, moveZ);
       enemy.phase += speed * h * 2.4;
     }
     enemy.moveAmount = Math.hypot(enemy.position.x - beforeX, enemy.position.z - beforeZ) / Math.max(h, 1e-6);
@@ -590,11 +609,38 @@ export class AiSystem {
     else enemy.stuckTime = 0;
     if (enemy.stuckTime > 0.8) {
       const sign = Number(enemy.id.slice(-1)) % 2 ? -1 : 1;
-      enemy.position.x += Math.cos(enemy.group.rotation.y) * sign * 0.45;
-      enemy.position.z -= Math.sin(enemy.group.rotation.y) * sign * 0.45;
+      this._moveThroughWorld(
+        enemy,
+        physics,
+        Math.cos(enemy.group.rotation.y) * sign * 0.45,
+        -Math.sin(enemy.group.rotation.y) * sign * 0.45,
+        h,
+      );
       enemy.pathLen = 0;
       enemy.repathIn = 0;
       enemy.stuckTime = 0;
+    }
+  }
+
+  _moveThroughWorld(enemy, physics, dx, dz, h) {
+    const distance = Math.hypot(dx, dz);
+    const steps = Math.max(1, Math.ceil(distance / (ENEMY_RADIUS * 0.4)));
+    const halfHeight = ENEMY_HEIGHT * 0.5 - ENEMY_RADIUS;
+    for (let i = 0; i < steps; i++) {
+      const moved = physics.moveCapsule(
+        enemy.position.x,
+        ENEMY_HEIGHT * 0.5,
+        enemy.position.z,
+        ENEMY_RADIUS,
+        halfHeight,
+        dx / steps,
+        0,
+        dz / steps,
+        h / steps,
+        LAYER_STATIC,
+      );
+      enemy.position.x = moved.x;
+      enemy.position.z = moved.z;
     }
   }
 
@@ -632,12 +678,44 @@ export class AiSystem {
       dir: this._dir,
       seed,
     });
-    const result = shotHitsPlayer(physics, player, this._origin, this._dir, 80);
-    const tracerDistance = result?.distance ?? Math.min(80, distance + 8);
+    const cover = physics.raycast(
+      this._origin.x,
+      this._origin.y,
+      this._origin.z,
+      this._dir.x,
+      this._dir.y,
+      this._dir.z,
+      80,
+      LAYER_STATIC,
+    );
+    const coverDistance = cover?.distance ?? Infinity;
+    if (cover) {
+      this._impactPoint.x = cover.pointX;
+      this._impactPoint.y = cover.pointY;
+      this._impactPoint.z = cover.pointZ;
+      this._impactNormal.x = cover.normalX;
+      this._impactNormal.y = cover.normalY;
+      this._impactNormal.z = cover.normalZ;
+    }
+    const coverSurface = cover?.surface;
+    const result = shotHitsPlayer(physics, player, this._origin, this._dir, 80, this._shotResult);
+    const tracerDistance = result?.distance ?? (Number.isFinite(coverDistance) ? coverDistance : Math.min(80, distance + 8));
     this._tracerTo.x = this._origin.x + this._dir.x * tracerDistance;
     this._tracerTo.y = this._origin.y + this._dir.y * tracerDistance;
     this._tracerTo.z = this._origin.z + this._dir.z * tracerDistance;
     ctx.events.emit('bullet:tracer', { from: this._origin, to: this._tracerTo, speed: 360 });
+    if (!result && cover) {
+      this._incident.x = this._dir.x;
+      this._incident.y = this._dir.y;
+      this._incident.z = this._dir.z;
+      ctx.events.emit('bullet:impact', {
+        point: this._impactPoint,
+        normal: this._impactNormal,
+        surface: coverSurface,
+        incident: this._incident,
+        damage: 0,
+      });
+    }
     if (result) {
       ctx.events.emit('damage:dealt', {
         target: 'player',
@@ -685,10 +763,13 @@ export class AiSystem {
       if (rig.legL) rig.legL.rotation.x = stride;
       if (rig.legR) rig.legR.rotation.x = -stride;
       const aiming = ['aim', 'burst', 'recover'].includes(enemy.state) ? 1 : 0;
-      if (rig.armL) rig.armL.rotation.x = -0.35 * moving - 1.05 * aiming + stride * 0.2;
-      if (rig.armR) rig.armR.rotation.x = 0.35 * moving - 1.18 * aiming - stride * 0.2;
-      if (rig.armL) rig.armL.rotation.z = -0.32 * aiming;
-      if (rig.armR) rig.armR.rotation.z = 0.18 * aiming;
+      const reloading = enemy.state === 'reload' ? 1 : 0;
+      // Limbs hang along local -Y. Positive X rotation brings the hands toward
+      // the authored -Z weapon axis; reload folds the support arm across the mag.
+      if (rig.armL) rig.armL.rotation.x = -0.35 * moving + 1.05 * aiming + 0.62 * reloading + stride * 0.2;
+      if (rig.armR) rig.armR.rotation.x = 0.35 * moving + 1.18 * aiming + 0.92 * reloading - stride * 0.2;
+      if (rig.armL) rig.armL.rotation.z = -0.32 * aiming - 0.78 * reloading;
+      if (rig.armR) rig.armR.rotation.z = 0.18 * aiming + 0.3 * reloading;
       if (rig.head) {
         rig.head.rotation.y = Math.sin(enemy.phase * 0.35) * 0.08 * (1 - aiming);
         rig.head.rotation.z = enemy.hitReact * 0.14;

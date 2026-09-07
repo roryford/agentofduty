@@ -22,7 +22,7 @@ const HIT_MASK = LAYER_STATIC | LAYER_ENEMY;
 const HIP_POS = { x: 0.28, y: -0.24, z: -0.48 };
 const HIP_ROT = { x: 0.05, y: 0.1, z: 0.03 };
 // Align holographic optic with screen center when ADS
-const ADS_POS = { x: 0.0, y: -0.118, z: -0.28 };
+const ADS_POS = { x: 0.0, y: -0.1, z: -0.28 };
 const ADS_ROT = { x: 0.0, y: 0.0, z: 0.0 };
 const SPRINT_POS = { x: 0.3, y: -0.34, z: -0.42 };
 const SPRINT_ROT = { x: 0.42, y: 0.15, z: 0.18 };
