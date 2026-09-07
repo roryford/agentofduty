@@ -173,6 +173,30 @@ test('continuous perimeter blocks low and airborne escapes at every lot edge', a
   world.dispose();
 });
 
+test('lot underlay provides visible physical ground beneath interior facade gaps', async () => {
+  const { world, physics } = await buildWorld();
+  const underlay = world._roots[0].getObjectByName('lot-underlay');
+  assert.ok(underlay?.isMesh && underlay.visible, 'lot underlay has no visible mesh');
+  assert.equal(underlay.geometry.parameters.width, world.room.maxx - world.room.minx);
+  assert.equal(underlay.geometry.parameters.depth, world.room.maxz - world.room.minz);
+
+  const samples = [
+    [-15, 59],
+    [-25, 25],
+    [-25, -25],
+  ];
+  for (let x = -29; x <= 9; x += 2) samples.push([x, 59]);
+  for (const [x, z] of samples) {
+    const ground = physics.raycast(x, 1.5, z, 0, -1, 0, 3, 1);
+    assert.ok(ground, `missing ground at ${x},${z}`);
+    assert.ok(
+      ground.pointY >= WORLD_BOUNDARY.underlayTop - 1e-5,
+      `ground at ${x},${z} fell below underlay: ${ground.pointY}`,
+    );
+  }
+  world.dispose();
+});
+
 test('facade glass clears the solid frame along each wall normal', async () => {
   const { world } = await buildWorld();
   let frameBatch = null;

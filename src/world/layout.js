@@ -15,6 +15,7 @@ export const WORLD_BOUNDARY = Object.freeze({
   height: 3.6,
   baseHeight: 1.05,
   postSpacing: 4,
+  underlayTop: -0.2,
 });
 
 export const WORLD_ENCOUNTERS = Object.freeze([

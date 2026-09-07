@@ -193,6 +193,20 @@ export class WorldSystem {
   }
 
   _buildGround(root, physics, p) {
+    const underlayDepth = 0.2;
+    this._box(
+      root,
+      physics,
+      0,
+      WORLD_BOUNDARY.underlayTop - underlayDepth * 0.5,
+      0,
+      WORLD_SIZE,
+      underlayDepth,
+      WORLD_SIZE,
+      p.road,
+      'concrete',
+      { name: 'lot-underlay' },
+    );
     this._box(root, physics, 0, -0.14, 0, ROAD_HALF * 2, 0.28, WORLD_SIZE, p.road, 'concrete');
     for (const side of [-1, 1]) {
       this._box(
@@ -703,6 +717,7 @@ export class WorldSystem {
   _box(root, physics, x, y, z, w, h, d, material, surface, opts = {}) {
     if (opts.visual !== false) {
       const mesh = new THREE.Mesh(this._sharedBox(w, h, d), material);
+      if (opts.name) mesh.name = opts.name;
       mesh.position.set(x, y, z);
       if (opts.yaw) mesh.rotation.y = opts.yaw;
       mesh.castShadow = false;
