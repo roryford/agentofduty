@@ -17,7 +17,7 @@ try {
   const point=w._reticle.position.clone();w._reticle.getWorldPosition(point);point.project(c.viewCamera);
   return {fov:c.session.settings.fov,mode:c.session.mode,state:c.session.state,hostiles:ai.enemies.filter(e=>e.alive).length,enemyColliders:ai.enemies.filter(e=>c.get('physics')._enabled[e.collider]).length,
    tick:c.time.fixedFrame,position:p.position.toArray(),health:p.health,area:m.index,ads:w.ads,reloading:w._reloading,ammo:w.current.ammo,reserve:w.current.reserve,
-   reticleVisible:w._reticle.visible,reticlePixels:Math.hypot(point.x*r.width/2,point.y*r.height/2),hudHidden:cross.hidden,hudOffset:[h.x+h.width/2-r.x-r.width/2,h.y+h.height/2-r.y-r.height/2]};
+   reticleVisible:w.reticleVisible,reticlePixels:Math.hypot(point.x*r.width/2,point.y*r.height/2),hudHidden:cross.hidden,hudOffset:[h.x+h.width/2-r.x-r.width/2,h.y+h.height/2-r.y-r.height/2]};
  });
  await page.getByLabel('MODE',{exact:true}).selectOption('practice');
  await page.waitForFunction(()=>window.__ENGINE__.ctx.session.mode==='practice');
@@ -39,6 +39,7 @@ try {
    await page.keyboard.press('Escape');await page.waitForFunction(()=>window.__ENGINE__.ctx.session.state==='paused');
    if(!await page.locator('details').evaluate(el=>el.open))await page.locator('summary').click();
    await page.getByLabel('FIELD OF VIEW',{exact:true}).focus();await page.keyboard.press(viewport.fov===65?'Home':'End');
+   await page.waitForFunction(value=>window.__ENGINE__.ctx.session.settings.fov===value,viewport.fov,{timeout:2000});
    assert.equal((await observe()).fov,viewport.fov);
    await page.getByRole('button',{name:'RESUME'}).click();await page.waitForFunction(()=>window.__ENGINE__.ctx.session.playing);
   }

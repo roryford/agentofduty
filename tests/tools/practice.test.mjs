@@ -14,6 +14,7 @@ test('demonstrated red: enemies, falling, and displaced reticles fail the practi
 
 test('demonstrated red: missing ADS, hidden crosshair and inactive controls cannot pass',()=>{
  assert.throws(()=>checkAim({ads:0,hudHidden:false,hudOffset:[0,0]},'ads'));
+ assert.throws(()=>checkAim({ads:1,reloading:false,reticleVisible:false,reticlePixels:0},'ads'));
  assert.throws(()=>checkAim({ads:0,hudHidden:true,hudOffset:[0,0]},'hip'));
  const start={tick:10,position:[0,.9,48],ammo:30};
  assert.throws(()=>checkMovement(start,{...start,position:[0,.9,58]}));

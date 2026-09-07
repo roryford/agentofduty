@@ -100,7 +100,7 @@ export class UiSystem {
     n['death-screen'].hidden = s.state !== 'dead';
     n['combat-hud'].hidden = menu || s.state === 'dead';
     n['objective-panel'].hidden = menu;
-    const aiming = ctx.get('weapons')._adsBlend >= 0.98 && ctx.get('weapons')._reticle?.visible && !ctx.get('weapons')._reloading;
+    const aiming = ctx.get('weapons')._adsBlend >= 0.98 && ctx.get('weapons').reticleVisible && !ctx.get('weapons')._reloading;
     n['aim-cross'].hidden = !s.playing || aiming;
     this.modeSelect.value = s.mode;
     this.areaSelect.value = String(mission.practiceEncounter);
