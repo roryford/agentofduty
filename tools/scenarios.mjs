@@ -52,4 +52,18 @@ try {
   console.log(`[scenarios] seed ${seed}: ${result.checks.length} integrated assertions passed`);
   await page.close();
  }
+ const fallback=await browser.newPage();const fallbackErrors=[];
+ fallback.on('pageerror',error=>fallbackErrors.push(String(error)));
+ await fallback.route('**/models/*.glb',route=>route.fulfill({status:404,body:'Intentional missing-asset fixture'}));
+ await fallback.goto(server.url+'/?lockstep=1&seed=1');
+ await fallback.waitForFunction(()=>window.__BOOT_COMPLETE__&&window.__READY__);
+ const fallbackState=await fallback.evaluate(()=>{
+  window.__PUMP__(30);const c=window.__ENGINE__.ctx;
+  return {rifle:c.get('weapons')._usingGltf,enemy:c.get('ai')._usingGltf,alive:c.get('ai').aliveCount,ready:window.__READY__,compiles:window.__METRICS__().shaderCompilesAfterReady};
+ });
+ assert.deepEqual(fallbackErrors,[]);assert.equal(fallbackState.ready,true);
+ assert.equal(fallbackState.rifle,false);assert.equal(fallbackState.enemy,false);
+ assert.ok(fallbackState.alive>0);assert.equal(fallbackState.compiles,0);
+ console.log('[scenarios] deliberately missing GLBs: procedural fallback remains playable');
+ await fallback.close();
 }finally{await browser?.close();await server.close();}
