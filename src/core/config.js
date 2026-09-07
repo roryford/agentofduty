@@ -1,3 +1,8 @@
+/** Separate submission cost from observed display pacing (vsync has rounding jitter). */
+export const PERFORMANCE_BUDGET = Object.freeze({
+  cpuP95Ms: 16.67, rafP95Ms: 17.5, rafP99Ms: 25, gpuP50Ms: 8, maxDrawCalls: 512,
+});
+
 /**
  * Default engine configuration. Overridable via createConfig(overrides).
  */
@@ -20,9 +25,9 @@ export const DEFAULT_CONFIG = Object.freeze({
   /** Perf budgets (asserted by tools/perf.mjs). */
   perf: Object.freeze({
     /** p95 frame time budget in ms at display rate. */
-    p95FrameMs: 16.67,
+    p95FrameMs: PERFORMANCE_BUDGET.cpuP95Ms,
     /** Max draw calls after ready (world + viewmodel totals). */
-    maxDrawCalls: 512,
+    maxDrawCalls: PERFORMANCE_BUDGET.maxDrawCalls,
     /** Shader compiles allowed after ready — must stay 0. */
     maxShaderCompilesAfterReady: 0,
     /** Frames to sample for perf. */

@@ -1,3 +1,4 @@
+import { PERFORMANCE_BUDGET as B } from '../../src/core/config.js';
 export function positive(value, name) {
   const n = Number(value);
   if (!Number.isFinite(n) || n <= 0) throw new Error(`${name} must be positive and finite`);
@@ -17,12 +18,14 @@ export function assess(metrics, budget) {
   const cpu = statistics(metrics.frameTimesMs, 'CPU');
   const raf = statistics(metrics.rafTimesMs, 'rAF');
   const gpu = statistics(metrics.gpuTimesMs, 'GPU');
+  if (!Number.isFinite(metrics.simulatedTicks) || metrics.simulatedTicks < raf.n) throw new Error('Simulation did not advance during the performance sample');
   const failures = [];
+  if (cpu.p95 > (budget.cpu ?? B.cpuP95Ms)) failures.push(`CPU p95 ${cpu.p95.toFixed(2)}ms exceeds budget`);
   for (const key of ['drawCalls','shaderCompilesAfterReady']) {
     if (!Number.isFinite(metrics[key]) || metrics[key] < 0) throw new Error(`Missing ${key}`);
   }
   if (raf.p95 > budget.raf) failures.push(`rAF p95 ${raf.p95.toFixed(2)} > ${budget.raf}ms`);
-  if (raf.p99 > (budget.p99 ?? 25)) failures.push(`rAF p99 ${raf.p99.toFixed(2)} > ${budget.p99 ?? 25}ms`);
+  if (raf.p99 > (budget.p99 ?? B.rafP99Ms)) failures.push(`rAF p99 ${raf.p99.toFixed(2)} > ${budget.p99 ?? B.rafP99Ms}ms`);
   if (gpu.p50 > budget.gpu) failures.push(`GPU p50 ${gpu.p50.toFixed(2)} > ${budget.gpu}ms`);
   if (metrics.drawCalls > budget.draws) failures.push(`draw calls ${metrics.drawCalls} > ${budget.draws}`);
   if (metrics.shaderCompilesAfterReady !== 0) failures.push(`post-ready compiles ${metrics.shaderCompilesAfterReady}`);

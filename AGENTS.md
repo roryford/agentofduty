@@ -163,3 +163,8 @@ resolved `combat:hit`. `weapon:fire` includes the source actor in `from`.
 Real GPU verification uses installed Chrome (ANGLE Metal on macOS). Software
 rendering is not accepted as evidence of device performance. Pixel output is
 capped by total pixels in core resize; render systems must not override it.
+
+The performance budget is centralized in src/core/config.js: CPU submission
+p95 16.67ms, GPU p50 8ms, display rAF p95 17.5ms / p99 25ms. The display
+p95 tolerance accounts for 60Hz timestamp rounding; it is distinct from CPU
+cost. The probe excludes startup and requires fixed-tick progress.

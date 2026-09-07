@@ -143,6 +143,7 @@ async function main() {
 
   installHooks(engine, opts.lockstep);
   await engine.init();
+  engine.ctx.events.emit('session:reset', { ...engine.ctx.get('mission').restore(true), full: true });
 
   // Force sized surface after init (init may have used clientWidth).
   if (opts.lockstep) {

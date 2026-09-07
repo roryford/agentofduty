@@ -264,7 +264,8 @@ Device targets are proposed acceptance budgets, not claims about today's build:
 - 60 fps on the named Apple-silicon test machine; record GPU/browser/window.
 - Starting cap of 2560×1440 total backing pixels; preserve aspect ratio and allow
   quality scaling. UI remains sharp at display resolution.
-- Frame p95 ≤ 16.7 ms and p99 ≤ 25 ms in declared combat routes; report CPU and GPU
+- Frame p95 targets 16.7 ms (gate tolerance 17.5 ms for vsync timestamp
+  rounding) and p99 ≤ 25 ms in declared combat routes; report CPU and GPU
   separately, use GPU timer queries for headroom, and record sample counts.
 - Zero shader compiles after ready; cold time-to-playable ≤ 8 seconds locally
   with cached assets. Network cold-start is a separate measurement.

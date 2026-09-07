@@ -239,20 +239,22 @@ export class Engine {
     const active = ctx.session.simulating;
     const simDt = active ? dt : 0;
     time.dt = simDt;
-    time.elapsed += simDt;
     time.accumulator += simDt;
 
     // fixedUpdate @ 120Hz
     // Cap steps per frame to avoid death spiral on long stalls.
     let steps = 0;
     const maxSteps = 8;
-    while (time.accumulator >= h && steps < maxSteps) {
+    while (time.accumulator >= h && steps < maxSteps && ctx.session.simulating) {
       ctx.session.advance(h);
+      if (!ctx.session.simulating) break;
       for (const sys of this._ordered) {
+        if (!ctx.session.simulating) break;
         if (typeof sys.fixedUpdate === 'function') sys.fixedUpdate(h, ctx);
       }
       time.accumulator -= h;
       time.fixedFrame += 1;
+      time.elapsed += h;
       steps += 1;
     }
     // Drop residual if we hit the cap so alpha stays meaningful.
@@ -260,17 +262,21 @@ export class Engine {
       time.accumulator = time.accumulator % h;
     }
 
+    if (!ctx.session.simulating) time.accumulator = 0;
+    const presentationDt = ctx.session.simulating ? simDt : 0;
+    time.dt = presentationDt;
+
     // alpha for render interpolation between physics ticks
-    time.alpha = active ? time.accumulator / h : 1;
+    time.alpha = ctx.session.simulating ? time.accumulator / h : 1;
 
     // update(dt)
     for (const sys of this._ordered) {
-      if (typeof sys.update === 'function') sys.update(sys.constructor.id === 'ui' ? dt : simDt, ctx);
+      if (typeof sys.update === 'function') sys.update(sys.constructor.id === 'ui' ? dt : presentationDt, ctx);
     }
 
     // lateUpdate(dt)
     for (const sys of this._ordered) {
-      if (typeof sys.lateUpdate === 'function') sys.lateUpdate(simDt, ctx);
+      if (typeof sys.lateUpdate === 'function') sys.lateUpdate(presentationDt, ctx);
     }
 
     // render
