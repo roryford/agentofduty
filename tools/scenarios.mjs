@@ -16,8 +16,9 @@ try {
    const c=window.__ENGINE__.ctx,p=c.get('player'),w=c.get('weapons'),ai=c.get('ai'),m=c.get('mission'),s=c.session;
    const checks=[];
    const check=(condition,label)=>{if(!condition)throw new Error(label);checks.push(label);};
-   const resetSnapshot=()=>JSON.stringify({x:p.position.x,z:p.position.z,health:p.health,ammo:w.current.ammo,reserve:w.current.reserve,enemies:ai.enemies.map(e=>[e.position.x,e.position.z,e.health,e.alive])});
+   const resetSnapshot=()=>JSON.stringify({x:p.position.x,z:p.position.z,health:p.health,ammo:w.current.ammo,reserve:w.current.reserve,enemies:ai.enemies.filter(e=>e.active).map(e=>[e.position.x,e.position.z,e.health,e.alive]),inactiveColliders:ai.enemies.filter(e=>!e.active&&c.get('physics').getCollider(e.collider).enabled).length});
    s.retry(true);const initial=resetSnapshot();
+   check(ai.enemies.filter(e=>!e.active).every(e=>!c.get('physics').getCollider(e.collider).enabled),'unused pool actors have disabled colliders');
    const first=ai.enemies.find(e=>e.alive),health=p.health;
    let outcome=null;const off=c.events.on('combat:hit',e=>{outcome=e;});
    const request=Object.freeze({target:first.id,from:'player',amount:1,headshot:false,point:Object.freeze({x:first.position.x,y:1,z:first.position.z})});

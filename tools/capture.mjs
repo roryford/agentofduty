@@ -52,7 +52,7 @@ try {
       window.__PUMP__(1);
     },shot);
     if (shot.pose==='pause') { await page.locator('summary').click(); await page.evaluate(()=>window.__PUMP__(1)); }
-    const buffer=shot.ui?await page.screenshot():await page.locator('#game').screenshot();
+    const buffer=shot.ui?await page.screenshot():Buffer.from((await page.evaluate(()=>document.getElementById('game').toDataURL('image/png'))).split(',')[1],'base64');
     await writeFile(path.join(args.out,shot.name+'.png'),buffer);
     const metrics=await page.evaluate(()=>window.__METRICS__());
     if(errors.length)throw new Error(`${shot.name}: ${errors.join('\n')}`);
