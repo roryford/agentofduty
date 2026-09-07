@@ -196,6 +196,18 @@ def mirror_hierarchy_y(root):
             obj.data.flip_normals()
 
 
+def apply_modifier_or_raise(obj, modifier_name, apply_fn=None):
+    """Apply a modifier and preserve enough context to diagnose export failures."""
+    if apply_fn is None:
+        apply_fn = bpy.ops.object.modifier_apply
+    try:
+        apply_fn(modifier=modifier_name)
+    except Exception as exc:
+        raise RuntimeError(
+            f"Failed to apply modifier {modifier_name!r} to object {obj.name!r}"
+        ) from exc
+
+
 def bevel(obj, width=0.008, segments=2):
     bpy.context.view_layer.objects.active = obj
     obj.select_set(True)
@@ -203,10 +215,7 @@ def bevel(obj, width=0.008, segments=2):
     mod.width = width
     mod.segments = segments
     mod.limit_method = "ANGLE"
-    try:
-        bpy.ops.object.modifier_apply(modifier=mod.name)
-    except Exception:
-        pass
+    apply_modifier_or_raise(obj, mod.name)
 
 
 def join_parts(parts, name):
