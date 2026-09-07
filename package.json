@@ -11,8 +11,10 @@
     "capture": "node tools/capture.mjs",
     "diff": "node tools/diff.mjs",
     "perf": "node tools/perf.mjs",
-    "gate": "npm run test && npm run build && node tools/capture.mjs && node tools/perf.mjs",
-    "test": "node --test tests/**/*.test.mjs"
+    "gate": "npm run test && npm run build && node tools/scenarios.mjs && node tools/capture.mjs && node tools/perf.mjs",
+    "test": "node --test tests/**/*.test.mjs",
+    "play": "node tools/play.mjs",
+    "scenarios": "node tools/scenarios.mjs"
   },
   "dependencies": {
     "three": "0.180.0"
