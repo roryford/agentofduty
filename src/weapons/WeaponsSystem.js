@@ -161,7 +161,6 @@ export class WeaponsSystem {
     this._optic = null;
     this._reticle = null;
     this._reticleAnchor = null;
-    this._gunBase = new THREE.Vector3(HIP_POS.x, HIP_POS.y, HIP_POS.z);
     this._posePos = new THREE.Vector3(HIP_POS.x, HIP_POS.y, HIP_POS.z);
     this._poseRot = new THREE.Euler(HIP_ROT.x, HIP_ROT.y, HIP_ROT.z, 'YXZ');
     this._kickPos = new THREE.Vector3();

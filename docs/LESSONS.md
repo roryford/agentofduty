@@ -3,6 +3,10 @@
 Practical lessons from building the gray-box → night street → hybrid-art FPS slice.
 Add rows when you rediscover something expensive.
 
+The July sections below preserve historical commands and paths. For current
+architecture and verification, use AGENTS.md and docs/EVIDENCE.md. Source art
+now lives in art-source/; the runtime facade texture remains under public/.
+
 ## 1. Harness first
 
 Phase 0 (engine, lockstep `__PUMP__`, seeded RNG, capture/diff/perf) paid for itself

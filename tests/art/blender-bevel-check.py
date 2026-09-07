@@ -15,6 +15,16 @@ spec = importlib.util.spec_from_file_location("export_hero_meshes", EXPORTER_PAT
 exporter = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(exporter)
 
+assert exporter.TEX_DIR == os.path.join(ROOT, "art-source", "textures")
+for name in ("car_albedo.jpg", "dumpster_albedo.jpg", "enemy_albedo.jpg", "rifle_albedo.jpg", "roughness.jpg"):
+    assert exporter.load_image(os.path.join(exporter.TEX_DIR, name)) is not None
+try:
+    exporter.load_image(os.path.join(exporter.TEX_DIR, "intentional-missing-texture.jpg"))
+except FileNotFoundError as exc:
+    assert "Required source texture missing" in str(exc)
+else:
+    raise AssertionError("missing source texture silently accepted")
+
 exporter.clear_scene()
 box = exporter.add_box("bevel_success", (1, 1, 1), (0, 0, 0))
 vertices_before = len(box.data.vertices)

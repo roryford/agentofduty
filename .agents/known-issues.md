@@ -1,5 +1,9 @@
 # Solved build and verification issues
 
+- 2026-09-08 — Evidence tooling crashed on Node versions supported by Vite before Node 20.11 → import.meta.dirname was used without raising the runtime requirement → derive the directory with fileURLToPath(import.meta.url); a regression executes the real module with dirname/filename absent and verifies root resolution plus source hashing (demonstrated red before the fix).
+
+- 2026-09-08 — Pixel diff passed after capture failed because old root PNGs still matched baselines → comparison had no source/build provenance or complete-run contract → build receipts hash inputs/output; capture invalidates the prior manifest before work and publishes isolated runs only on success; diff verifies completeness, definitions and image hashes. See docs/EVIDENCE.md.
+
 - 2026-09-07 — Hardware Chrome capture reported a console 404 despite successful model loads → Chrome requests a favicon automatically → declare an empty data favicon in index.html; preserve strict console-error capture.
 - 2026-09-07 — Perf passed a fast paused scene and software renderers → CPU render submission was treated as device performance without simulation liveness → require hardware renderer identity, valid GPU timer samples, active fixed-tick advancement, rAF frame pacing, and demonstrated failing fixtures. Warm up before sampling; report CPU and GPU separately.
 

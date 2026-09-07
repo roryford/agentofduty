@@ -21,7 +21,7 @@ from mathutils import Euler, Matrix, Vector
 
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
 OUT_DIR = os.path.join(ROOT, "public", "models")
-TEX_DIR = os.path.join(OUT_DIR, "textures")
+TEX_DIR = os.path.join(ROOT, "art-source", "textures")
 
 
 def clear_scene():
@@ -35,8 +35,7 @@ def clear_scene():
 
 def load_image(path: str):
     if not os.path.isfile(path):
-        print(f"  missing texture: {path}")
-        return None
+        raise FileNotFoundError(f"Required source texture missing: {path}")
     img = bpy.data.images.load(path, check_existing=True)
     img.colorspace_settings.name = "sRGB"
     return img

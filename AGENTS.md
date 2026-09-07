@@ -2,6 +2,19 @@
 
 Canonical instructions for agents working in this repo.
 
+## Agent routing
+
+Rory's repository direction (2026-09-08): use **Codex** for orchestration,
+implementation, and independent adversarial review. Do not launch Claude Code
+or require Claude authentication for work in this repository.
+
+- Use named, resumable Codex agents with explicit available Codex models.
+- Give each implementation worker an isolated worktree and exact file ownership.
+- Keep the independent reviewer separate from implementation and read-only;
+  review the actual commit or explicitly identified uncommitted snapshot.
+- Reuse the same reviewer for fixes and re-review. Do not delegate recursively.
+- Keep routing instructions here; plans and harness stubs should reference them.
+
 ## What this is
 
 Browser FPS: **Three.js r180 + Vite (WebGL2)**. Night rain-slicked street (~120m).
@@ -10,6 +23,7 @@ One weapon, one enemy archetype. Cohesion over feature count.
 - Original product brief: [`docs/BRIEF.md`](docs/BRIEF.md)
 - Session lessons: [`docs/LESSONS.md`](docs/LESSONS.md)
 - Optional follow-ups: [`docs/FOLLOWUPS.md`](docs/FOLLOWUPS.md)
+- Current evidence workflow: [`docs/EVIDENCE.md`](docs/EVIDENCE.md)
 
 ## Commands
 
@@ -21,7 +35,8 @@ npm run dev          # local play
 npm run build        # vite → dist/
 npm run assets       # Blender headless → public/models/*.glb (build-time only)
 npm run test         # node behavioural and verifier tests
-npm run gate         # tests + build + scenarios + capture + real-GPU perf
+npm run gate         # tests + build + scenarios + practice + fresh visual diff + real-GPU perf
+npm run visual       # fresh capture + diff, requires current build
 npm run play -- --seconds 600  # real-input stability soak
 node tools/route.mjs  # real-input automated mission route
 node tools/diff.mjs  # pixel-diff captures/ vs baselines/ (exit nonzero on fail)
@@ -30,8 +45,8 @@ node tools/diff.mjs  # pixel-diff captures/ vs baselines/ (exit nonzero on fail)
 The full test gate includes a real Blender exporter regression: provide `blender`
 on PATH or set `BLENDER` to its executable. Shipped GLBs do not need rebaking.
 
-Gate for handoffs: **`npm run gate` green**, then **`node tools/diff.mjs`** if
-baselines are locked (update baselines only on intentional visual changes).
+Gate for handoffs: **`npm run gate` green**, including fresh visual comparison.
+Update baselines only after inspecting intentional visual changes. See EVIDENCE.md.
 
 ## Runtime vs build-time deps
 
@@ -110,10 +125,13 @@ Rules:
 ## Hybrid art path
 
 ```
-Imagine textures → public/models/textures/
+Imagine source textures → art-source/textures/
 npm run assets   → public/models/{rifle,enemy,dumpster,car}.glb
 runtime          → src/assets/gltf.js (GLTFLoader + fitHeight/fitLength)
 ```
+
+Only the separately loaded facade texture remains in public/models/textures/.
+Original concept references live in art-source/concepts/.
 
 If a GLB fails to load, systems fall back to procedural meshes.
 
@@ -149,13 +167,10 @@ If a GLB fails to load, systems fall back to procedural meshes.
 
 ## Baselines
 
-Locked shots live in `baselines/`. After intentional visual changes:
-
-```bash
-npm run gate
-node --input-type=module -e "import fs from 'node:fs'; const m=JSON.parse(fs.readFileSync('captures/manifest.json')); for(const s of m.shots) fs.copyFileSync('captures/'+s.file,'baselines/'+s.file); fs.copyFileSync('captures/manifest.json','baselines/manifest.json');"
-node tools/diff.mjs
-```
+Locked shots live in `baselines/`. Capture runs and their galleries live in
+`captures/runs/`; `captures/manifest.json` identifies the last successful attempt
+or marks an incomplete attempt. Follow `docs/EVIDENCE.md` to review and accept
+intentional baseline changes. Never copy stale root-level capture PNGs.
 
 ## Upgrade lifecycle and resolved events
 
