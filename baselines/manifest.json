@@ -9,8 +9,8 @@
       "frame": 0,
       "description": "Checkpoint approach from spawn",
       "file": "boot-street.png",
-      "bytes": 516904,
-      "drawCalls": 425,
+      "bytes": 517400,
+      "drawCalls": 437,
       "shaderCompilesAfterReady": 0
     },
     {
@@ -18,8 +18,8 @@
       "frame": 90,
       "description": "Squad approach and cover silhouettes",
       "file": "enemy-approach.png",
-      "bytes": 517073,
-      "drawCalls": 426,
+      "bytes": 517619,
+      "drawCalls": 438,
       "shaderCompilesAfterReady": 0
     },
     {
@@ -28,8 +28,8 @@
       "pose": "fire",
       "description": "Hip-fire rifle and muzzle response",
       "file": "combat.png",
-      "bytes": 531220,
-      "drawCalls": 435,
+      "bytes": 531798,
+      "drawCalls": 447,
       "shaderCompilesAfterReady": 0
     },
     {
@@ -38,8 +38,8 @@
       "pose": "ads",
       "description": "Clear sight line through optic",
       "file": "ads.png",
-      "bytes": 503885,
-      "drawCalls": 423,
+      "bytes": 503905,
+      "drawCalls": 441,
       "shaderCompilesAfterReady": 0
     },
     {
@@ -48,8 +48,8 @@
       "pose": "reload",
       "description": "Magazine and support hand at reload midpoint",
       "file": "reload.png",
-      "bytes": 518124,
-      "drawCalls": 430,
+      "bytes": 518526,
+      "drawCalls": 442,
       "shaderCompilesAfterReady": 0
     },
     {
@@ -58,8 +58,8 @@
       "encounter": 1,
       "description": "Lantern Court checkpoint and flank route",
       "file": "courtyard.png",
-      "bytes": 633829,
-      "drawCalls": 197,
+      "bytes": 649521,
+      "drawCalls": 205,
       "shaderCompilesAfterReady": 0
     },
     {
@@ -68,8 +68,8 @@
       "encounter": 2,
       "description": "Northern extraction encounter",
       "file": "extraction.png",
-      "bytes": 698461,
-      "drawCalls": 283,
+      "bytes": 698680,
+      "drawCalls": 291,
       "shaderCompilesAfterReady": 0
     },
     {
@@ -79,8 +79,8 @@
       "ui": true,
       "description": "Actor-qualified damage feedback",
       "file": "damage.png",
-      "bytes": 525819,
-      "drawCalls": 425,
+      "bytes": 525827,
+      "drawCalls": 437,
       "shaderCompilesAfterReady": 0
     },
     {
@@ -90,8 +90,8 @@
       "ui": true,
       "description": "Death view and checkpoint countdown",
       "file": "death.png",
-      "bytes": 236247,
-      "drawCalls": 394,
+      "bytes": 236311,
+      "drawCalls": 412,
       "shaderCompilesAfterReady": 0
     },
     {
@@ -101,8 +101,8 @@
       "ui": true,
       "description": "Mission briefing and safe entry",
       "file": "ready.png",
-      "bytes": 446218,
-      "drawCalls": 425,
+      "bytes": 457813,
+      "drawCalls": 437,
       "shaderCompilesAfterReady": 0
     },
     {
@@ -112,8 +112,8 @@
       "ui": true,
       "description": "Pause menu and controls settings",
       "file": "pause-settings.png",
-      "bytes": 456642,
-      "drawCalls": 425,
+      "bytes": 467410,
+      "drawCalls": 437,
       "shaderCompilesAfterReady": 0
     },
     {
@@ -123,8 +123,32 @@
       "ui": true,
       "description": "Extraction completion and restart",
       "file": "victory.png",
-      "bytes": 453255,
-      "drawCalls": 425,
+      "bytes": 467520,
+      "drawCalls": 437,
+      "shaderCompilesAfterReady": 0
+    },
+    {
+      "name": "practice-menu",
+      "frame": 0,
+      "mode": "practice",
+      "pose": "ready",
+      "ui": true,
+      "description": "Enemy-free practice controls and area selector",
+      "file": "practice-menu.png",
+      "bytes": 457082,
+      "drawCalls": 323,
+      "shaderCompilesAfterReady": 0
+    },
+    {
+      "name": "practice-court",
+      "frame": 0,
+      "mode": "practice",
+      "encounter": 1,
+      "ui": true,
+      "description": "Empty courtyard for movement and aiming tests",
+      "file": "practice-court.png",
+      "bytes": 374021,
+      "drawCalls": 129,
       "shaderCompilesAfterReady": 0
     }
   ]

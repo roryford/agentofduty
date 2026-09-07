@@ -1,5 +1,9 @@
 # Nightfall upgrade — local delivery evidence
 
+This records the original upgrade. See [PRACTICE_FIXES.md](PRACTICE_FIXES.md)
+for the subsequent aiming, containment and practice changes. Generated capture
+reports contain the latest run and may supersede the historical values below.
+
 Prepared on `codex/upgrade` in the isolated `agentofduty-codex-upgrade` worktree.
 No push, PR, merge or deployment has occurred. Automatic approval review rejected
 publishing to `https://github.com/roryford/agentofduty` pending explicit authorization.

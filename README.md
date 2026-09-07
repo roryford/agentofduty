@@ -48,6 +48,7 @@ node tools/route.mjs           # automated real-input mission completion
 | [`docs/LESSONS.md`](docs/LESSONS.md) | Lessons from the first full build session |
 | [`docs/UPGRADE_PLAN.md`](docs/UPGRADE_PLAN.md) | Upgrade scope, evidence and remaining acceptance items |
 | [`docs/UPGRADE_REPORT.md`](docs/UPGRADE_REPORT.md) | Local delivery evidence and limitations |
+| [`docs/PRACTICE_FIXES.md`](docs/PRACTICE_FIXES.md) | Aiming, boundary and practice follow-up |
 | [`docs/FOLLOWUPS.md`](docs/FOLLOWUPS.md) | Optional next steps |
 
 ## Hybrid art
