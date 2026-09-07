@@ -24,13 +24,12 @@ The source references and original assessment are in UPGRADE_PLAN.md.
 
 ## Terminal verification
 
-Executable verification revision: `7ce5f09` (game runtime unchanged since
-`893184a7cc0dae591c8b20e56b087b707ef75c86`). The following artifact commit only
-locks reviewed baselines and documents evidence.
+Executable verification revision: `cc6d549d88107da049ad0c4ddd513bc139fb4814` (game runtime unchanged since
+`893184a7cc0dae591c8b20e56b087b707ef75c86`). The final evidence commit only updates this report; locked baselines are unchanged.
 
 | Check | Result |
 |---|---|
-| `npm run gate` | PASS: 66 tests, production build, 3 seeds × 25 mission/reset assertions, deliberately missing GLB fallback, 12 staged captures, 3 hardware performance encounters |
+| `npm run gate` | PASS: 67 tests, production build, 3 seeds × 25 mission/reset assertions, deliberately missing GLB fallback, 12 staged captures, 3 hardware performance encounters |
 | `node tools/diff.mjs` | PASS: all 12 locked views, zero differing pixels; separate independent recapture also matched exactly |
 | `node tools/route.mjs` | PASS: actual DOM movement/aim/fire/reload through all stages, 11 kills, 0 retries, 33.603 seconds |
 | `node tools/play.mjs --seconds 600` | PASS: 601.887 seconds, 233 samples, 89 checkpoint retries; 30-second ready and pause freezes, input cleanup, ADS/fire/reload and bounded resources |
@@ -38,7 +37,7 @@ locks reviewed baselines and documents evidence.
 | `node tools/play.mjs --seconds 15` | PASS with the stronger validator inline: 15.482 seconds, 6 samples, plus the same ready/pause/input smoke |
 | `node tools/perf.mjs --gpu 0.000001` | EXPECTED FAIL: actual hardware GPU median exceeded deliberately impossible budget; exit 1 |
 | Guard fixtures | PASS: demonstrate red for stalled/dead simulation, missing/invalid CLI values, inadequate samples, software renderer, invalid metrics, slow boot and exceeded budgets |
-| Blender exporter regression | PASS: successful real modifier application and deliberately injected error with contextual reporting; subprocess bounded to 30 seconds |
+| Blender exporter regression | PASS: successful real modifier application, contextual failure reporting and nonzero CLI exit for an uncaught Python error; subprocess bounded to 30 seconds |
 | `lint-fail-open.sh --diff 227edb1` | PASS: 2 Python files checked, 0 findings; this lint does not inspect JavaScript |
 
 The ten-minute recording was acquired before the reviewer requested stronger
@@ -50,8 +49,8 @@ Local raw results are in `captures/play-report.json`, `soak-validation.json`,
 `play-short-report.json` and `route-report.json` (ignored generated artifacts).
 
 Final device gate: Apple M5 Pro, Chrome ANGLE Metal, 2560×1440 backing pixels,
-240 samples per encounter. Local cold boot: 767 ms. rAF p95: 16.7 ms; p99: 16.8 ms.
-CPU p95: 2.7 / 2.2 / 2.4 ms. GPU medians: 2.242 / 1.502 / 2.585 ms.
+240 samples per encounter. Local cold boot: 704 ms. rAF p95: 16.7–16.8 ms; p99: 16.8 ms.
+CPU p95: 2.8 / 2.2 / 2.4 ms. GPU medians: 2.058 / 2.482 / 2.329 ms.
 Peak sampled draws: 428 / 204 / 288. The combat capture peaks at 435 draws,
 down from 668 before facade batching. No shader compilation occurs after ready.
 These are stationary combat measurements, separate from the real-input route.
@@ -61,8 +60,9 @@ These are stationary combat measurements, separate from the real-input route.
 Independent review drove fixes to lifecycle transitions, GPU liveness, audio,
 asset axes, actual posed weapon sockets, glass occlusion, enemy reload/corpse
 states, vault bounds and verifier failure handling. The reviewer issued a ship
-verdict on `60684b3a51427aec7a3ad959f360c07806c585ec`; the final exporter and
-artifact delta receives an exact-head verdict in the session delivery.
+verdict on `cc6d549d88107da049ad0c4ddd513bc139fb4814`, including the corrected
+Blender CLI failure boundary. The final evidence-only commit receives an
+exact-head verdict in the session delivery.
 
 The automated route reads exact target positions and navigation, so it proves
 functional completion rather than human difficulty or duration. The proposed
