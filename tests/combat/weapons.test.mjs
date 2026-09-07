@@ -58,6 +58,24 @@ test('fixed fire cadence is 600 rpm and emits player-qualified shots', () => {
   assert.equal(weapon.current.ammo, 20);
 });
 
+test('600 rpm stays on exact 12-tick intervals over ten seconds', () => {
+  const { weapon, ctx, events } = weaponHarness();
+  weapon.current.ammo = 1000;
+  const shotFrames = [];
+  const emit = ctx.events.emit;
+  ctx.events.emit = (type, payload) => {
+    emit(type, payload);
+    if (type === 'weapon:fire') shotFrames.push(ctx.time.fixedFrame);
+  };
+  for (let frame = 0; frame < 1200; frame++) {
+    ctx.time.fixedFrame = frame;
+    weapon.fixedUpdate(1 / 120, ctx);
+  }
+  assert.equal(shotFrames.length, 100);
+  for (let i = 1; i < shotFrames.length; i++) assert.equal(shotFrames[i] - shotFrames[i - 1], 12);
+  assert.equal(events.filter((event) => event.type === 'weapon:fire').length, 100);
+});
+
 test('reload conserves ammunition and reset cancels an in-flight reload', () => {
   const { weapon, ctx } = weaponHarness();
   ctx.input.buttons[0] = false;

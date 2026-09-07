@@ -402,13 +402,14 @@ export class AiSystem {
       const enemy = this.enemies[i];
       if (!enemy.active) continue;
       enemy.prevPosition.copy(enemy.position);
+      // Hit and muzzle cues finish even when the killing shot arrived mid-flash.
+      this._updateCues(enemy, h);
       if (!enemy.alive) {
         enemy.deathTime += h;
         enemy.corpseTime += h;
         if (enemy.corpseTime >= CORPSE_TIME) enemy.group.visible = false;
         continue;
       }
-      this._updateCues(enemy, h);
       const dx = player.position.x - enemy.position.x;
       const dz = player.position.z - enemy.position.z;
       const distance = Math.hypot(dx, dz);
@@ -424,7 +425,10 @@ export class AiSystem {
         enemy.lastKnown.set(player.position.x, 0, player.position.z);
         enemy.hasLastKnown = true;
         enemy.exposedTime += h;
-        if (!enemy.seesPlayer || enemy.state === 'unaware' || enemy.state === 'search') {
+        if (
+          enemy.state !== 'reload' &&
+          (!enemy.seesPlayer || enemy.state === 'unaware' || enemy.state === 'search')
+        ) {
           enemy.state = 'acquire';
           enemy.stateTime = 0.22 + this._rng.float(0, 0.22);
         }
@@ -469,7 +473,10 @@ export class AiSystem {
             enemy.stateTime = 3;
           } else {
             enemy.shotTimer -= h;
-            if (enemy.shotTimer <= 0 && enemy.burstLeft > 0) {
+            if (enemy.ammo <= 0) {
+              enemy.state = 'reload';
+              enemy.stateTime = RELOAD_TIME;
+            } else if (enemy.shotTimer <= 0 && enemy.burstLeft > 0) {
               this._fire(ctx, enemy, distance);
               enemy.ammo -= 1;
               enemy.burstLeft -= 1;

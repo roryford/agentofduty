@@ -123,3 +123,64 @@ test('reload state has a distinct visible support-arm pose', () => {
   assert.ok(armL.rotation.z < -0.7);
   assert.ok(armR.rotation.x > 0.8);
 });
+
+test('a corpse finishes hit and muzzle cues after a killing shot', () => {
+  const ai = new AiSystem();
+  const material = { color: new THREE.Color(0.2, 0.3, 0.4) };
+  const enemy = {
+    id: 'enemy-0', active: true, alive: true, health: 1,
+    flashMats: [material], bases: [{ material, r: 0.2, g: 0.3, b: 0.4 }],
+    position: new THREE.Vector3(), prevPosition: new THREE.Vector3(),
+    group: { visible: true }, collider: 3, coverId: null, moveAmount: 0,
+    flash: 0, hitReact: 0, deathTime: 0, corpseTime: 0,
+    muzzle: { visible: true }, muzzleLife: 0.04,
+  };
+  ai.enemies = [enemy];
+  const physics = { setEnabled() {} };
+  const player = { getEyePosition(out) { Object.assign(out, { x: 0, y: 1.65, z: 0 }); } };
+  const ctx = {
+    session: { playing: true },
+    events: { emit() {} },
+    get: (id) => id === 'physics' ? physics : id === 'player' ? player : {},
+  };
+  ai._applyDamage(ctx, enemy, { amount: 2, from: 'player' });
+  assert.equal(material.color.getHex(), 0xffffff);
+  ai.fixedUpdate(0.1, ctx);
+  assert.equal(enemy.muzzle.visible, false);
+  assert.ok(Math.abs(material.color.r - 0.2) < 1e-6);
+  assert.ok(Math.abs(material.color.g - 0.3) < 1e-6);
+  assert.ok(Math.abs(material.color.b - 0.4) < 1e-6);
+  assert.equal(enemy.group.visible, true);
+});
+
+test('regaining line of sight cannot bypass an in-progress reload', () => {
+  const ai = new AiSystem();
+  ai._rng = { next: () => 0.25, float: (min = 0, max = 1) => (min + max) * 0.5, int: (min) => min };
+  const enemy = {
+    id: 'enemy-0', active: true, alive: true, health: 100,
+    position: new THREE.Vector3(0, 0, 10), prevPosition: new THREE.Vector3(0, 0, 10),
+    lastKnown: new THREE.Vector3(), hasLastKnown: true, seesPlayer: false, exposedTime: 0,
+    group: new THREE.Group(), collider: 2, role: 'holder', state: 'reload', stateTime: 1.5,
+    ammo: 0, burstLeft: 0, shotTimer: 0, flash: 0, hitReact: 0,
+    muzzle: { visible: false }, muzzleLife: 0, bases: [], phase: 0, moveAmount: 0,
+  };
+  ai.enemies = [enemy];
+  const player = {
+    alive: true, position: new THREE.Vector3(0, 0.9, 0), velocity: { x: 0, z: 0 },
+    getEyePosition(out) { Object.assign(out, { x: 0, y: 1.65, z: 0 }); return out; },
+    getHurtbox() { return { minx: -0.35, miny: 0, minz: -0.35, maxx: 0.35, maxy: 1.8, maxz: 0.35 }; },
+  };
+  const physics = { raycast: () => null, setBox() {}, raycastBoxDistance: () => 9.65 };
+  const firedWithAmmo = [];
+  const ctx = {
+    session: { playing: true },
+    get: (id) => id === 'player' ? player : id === 'physics' ? physics : { coverPoints: [] },
+    events: { emit: (type) => { if (type === 'weapon:fire') firedWithAmmo.push(enemy.ammo); } },
+  };
+  for (let tick = 0; tick < 120; tick++) ai.fixedUpdate(1 / 120, ctx);
+  assert.equal(enemy.state, 'reload');
+  assert.equal(enemy.ammo, 0);
+  assert.deepEqual(firedWithAmmo, []);
+  for (let tick = 0; tick < 120 && firedWithAmmo.length === 0; tick++) ai.fixedUpdate(1 / 120, ctx);
+  assert.ok(firedWithAmmo[0] > 0, 'first post-reload shot must follow magazine transfer');
+});

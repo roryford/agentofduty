@@ -434,7 +434,10 @@ export class WeaponsSystem {
     this._kickRot.y *= Math.exp(-10 * h);
     this._kickRot.z *= Math.exp(-10 * h);
 
-    this._cooldown = Math.max(0, this._cooldown - h);
+    if (this._cooldown > 0) {
+      this._cooldown -= h;
+      if (Math.abs(this._cooldown) < 1e-9) this._cooldown = 0;
+    }
     this._sprintRecovery = player.sprinting ? SPRINT_TO_FIRE : Math.max(0, this._sprintRecovery - h);
     if (this._reloading) {
       this._reloadLeft -= h;
@@ -485,7 +488,9 @@ export class WeaponsSystem {
     if (fire && !this._reloading && this._cooldown <= 0 && this._sprintRecovery <= 0) {
       if (this.current.ammo > 0) {
         this._fire(ctx, player);
-        this._cooldown = this._firePeriod;
+        // Preserve the fractional residual so fixed ticks do not round a
+        // 12-tick fire period up to 13 ticks through floating-point drift.
+        this._cooldown += this._firePeriod;
         this.firing = true;
       } else if (this.current.reserve > 0) {
         this._startReload(ctx);
