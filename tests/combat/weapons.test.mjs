@@ -59,6 +59,26 @@ test('muzzle flash uses a filled star silhouette without a square background', (
   geometry.dispose();
 });
 
+test('reticleVisible reflects effective visibility through its parent chain', () => {
+  const weapon = new WeaponsSystem();
+  const scene = { visible: true, parent: null };
+  const anchor = { visible: false, parent: scene };
+  const reticle = { visible: true, parent: anchor };
+  weapon._reticle = reticle;
+  weapon._reticleAnchor = anchor;
+
+  assert.equal(weapon.reticleVisible, false);
+  anchor.visible = true;
+  assert.equal(weapon.reticleVisible, true);
+  scene.visible = false;
+  assert.equal(weapon.reticleVisible, false);
+  scene.visible = true;
+  reticle.parent = scene;
+  assert.equal(weapon.reticleVisible, false);
+  weapon._reticle = null;
+  assert.equal(weapon.reticleVisible, false);
+});
+
 test('fixed fire cadence is 600 rpm and emits player-qualified shots', () => {
   const { weapon, ctx, events } = weaponHarness();
   for (let i = 0; i < 120; i++) {

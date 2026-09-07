@@ -101,6 +101,18 @@ export class WeaponsSystem {
   static id = 'weapons';
   static deps = ['physics', 'player', 'materials'];
 
+  get reticleVisible() {
+    if (!this._reticle || !this._reticleAnchor) return false;
+    let node = this._reticle;
+    let includesAnchor = false;
+    while (node) {
+      if (!node.visible) return false;
+      if (node === this._reticleAnchor) includesAnchor = true;
+      node = node.parent;
+    }
+    return includesAnchor;
+  }
+
   constructor() {
     this.current = {
       id: 'rifle',
