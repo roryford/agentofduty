@@ -8,7 +8,7 @@ Target sizes (meters, after glTF Y-up):
   dumpster: L 2.05 × W 1.15 × H 1.25  (commercial front-load)
   rifle:   viewmodel, length ~0.75 along barrel
 
-  blender --background --python tools/blender/export_hero_meshes.py
+  blender --background --python-exit-code 1 --python tools/blender/export_hero_meshes.py
 """
 
 from __future__ import annotations
