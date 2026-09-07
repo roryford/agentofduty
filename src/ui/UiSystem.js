@@ -28,6 +28,8 @@ export class UiSystem {
       <section class="session-menu" aria-label="Mission menu"><div class="menu-card"><div class="eyebrow">AGENT OF DUTY <span>01 / NIGHT OPERATIONS</span></div>
       <h1>NIGHTFALL<span>CHECKPOINT ASSAULT</span></h1><p class="menu-description">Push through the checkpoint. Clear the side route. Secure extraction.</p>
       <div class="mission-brief"><span>01 <b>BREACH</b></span><span>02 <b>FLANK</b></span><span>03 <b>EXTRACT</b></span></div>
+      <div class="mode-controls"><label>MODE<select name="mode"><option value="mission">Mission / hostiles</option><option value="practice">Explore / no enemies</option></select></label><label class="practice-area" hidden>STARTING AREA<select name="encounter"></select></label><p class="mode-note">Changing mode or area restarts the session.</p></div>
+      <button class="reset-position secondary" type="button" hidden>RESET POSITION</button>
       <button class="deploy-button" type="button">DEPLOY <span>→</span></button><button class="retry-button secondary" type="button">RESTART MISSION</button>
       <p class="menu-message" role="status"></p>
       <details class="settings"><summary>CONTROLS & SETTINGS</summary><div class="settings-grid">
@@ -44,6 +46,18 @@ export class UiSystem {
     const q = (selector) => root.querySelector(selector);
     this.nodes = Object.fromEntries(['rally-marker','mission-location','objective-text','objective-distance','health-value','ammo-value','reserve-value','weapon-status','session-menu','menu-description','menu-message','death-countdown','death-screen','deploy-button','retry-button','kill-confirm','hit-marker','damage-wash','damage-bearing','aim-cross','combat-hud','objective-panel','mission-brief'].map(n => [n, q('.'+n)]));
     this.healthBar = q('.health-track i');
+    this.modeSelect = q('[name=mode]');
+    this.areaSelect = q('[name=encounter]');
+    this.areaLabel = q('.practice-area');
+    this.resetButton = q('.reset-position');
+    const mission = ctx.get('mission');
+    mission.encounters.forEach((encounter, index) => {
+      const option = document.createElement('option'); option.value = String(index); option.textContent = encounter.name; this.areaSelect.append(option);
+    });
+    const configure = () => mission.configure(this.modeSelect.value, Number(this.areaSelect.value));
+    this.modeSelect.addEventListener('change', configure);
+    this.areaSelect.addEventListener('change', configure);
+    this.resetButton.addEventListener('click', () => mission.resetPosition());
     this.heading = q('h1');
     this.nodes['deploy-button'].addEventListener('click', async () => {
       if (ctx.session.state === 'complete') ctx.session.retry(true);
@@ -86,12 +100,18 @@ export class UiSystem {
     n['death-screen'].hidden = s.state !== 'dead';
     n['combat-hud'].hidden = menu || s.state === 'dead';
     n['objective-panel'].hidden = menu;
-    n['aim-cross'].hidden = !s.playing || p.ads;
+    const aiming = ctx.get('weapons')._adsBlend >= 0.98 && !ctx.get('weapons')._reloading;
+    n['aim-cross'].hidden = !s.playing || aiming;
+    this.modeSelect.value = s.mode;
+    this.areaSelect.value = String(mission.practiceEncounter);
+    this.areaLabel.hidden = !mission.practice;
+    this.resetButton.hidden = !mission.practice;
+    n['retry-button'].textContent = mission.practice ? 'RESTART PRACTICE' : 'RESTART MISSION';
     n['health-value'].textContent = `${Math.ceil(p.health)}`;
     this.healthBar.style.transform = `scaleX(${Math.max(0,p.health)/100})`;
     n['health-value'].classList.toggle('critical', p.health < 30);
     n['ammo-value'].textContent = String(w.ammo).padStart(2,'0');
-    n['reserve-value'].textContent = `/ ${w.reserve}`;
+    n['reserve-value'].textContent = mission.practice ? '/ ∞' : `/ ${w.reserve}`;
     const weapon = ctx.get('weapons');
     n['weapon-status'].textContent = weapon._reloading ? 'RELOADING' : w.ammo === 0 ? 'EMPTY · R RELOAD' : p.sprinting ? 'SPRINTING' : p.ads ? 'AIMING' : 'AUTO';
     n['mission-location'].textContent = `${String(mission.index+1).padStart(2,'0')} / ${mission.current.name.toUpperCase()}`;
@@ -99,21 +119,22 @@ export class UiSystem {
     const exit = mission.current.exit;
     this._waypoint.set(exit.x, 1.8, exit.z).project(ctx.camera);
     const marker = n['rally-marker'];
-    marker.hidden = !s.playing || mission.alive > 0;
+    marker.hidden = mission.practice || !s.playing || mission.alive > 0;
     const behind = this._waypoint.z > 1;
     const side = behind ? -Math.sign(this._waypoint.x || 1) : this._waypoint.x;
     marker.style.left = `${50 + Math.max(-.86, Math.min(.86, side)) * 50}%`;
     marker.style.top = `${50 - Math.max(-.62, Math.min(.62, behind ? 0 : this._waypoint.y)) * 50}%`;
     marker.classList.toggle('offscreen', behind || Math.abs(this._waypoint.x) > .86);
+    n['objective-distance'].hidden = mission.practice;
     n['objective-distance'].textContent = `${Math.ceil(Math.hypot(p.position.x-exit.x,p.position.z-exit.z))} m TO RALLY POINT`;
     n['menu-message'].textContent = s.message;
     n['retry-button'].hidden = s.state === 'ready';
-    n['mission-brief'].hidden = s.state !== 'ready';
+    n['mission-brief'].hidden = mission.practice || s.state !== 'ready';
     if (menu) {
       const complete = s.state === 'complete';
-      this.heading.innerHTML = complete ? 'MISSION COMPLETE<span>EXTRACTION SECURED</span>' : s.state === 'paused' ? 'ON HOLD<span>MISSION PAUSED</span>' : 'NIGHTFALL<span>CHECKPOINT ASSAULT</span>';
+      this.heading.innerHTML = mission.practice ? 'EXPLORE<span>NO ENEMIES · UNLIMITED RESERVE</span>' : complete ? 'MISSION COMPLETE<span>EXTRACTION SECURED</span>' : s.state === 'paused' ? 'ON HOLD<span>MISSION PAUSED</span>' : 'NIGHTFALL<span>CHECKPOINT ASSAULT</span>';
       n['deploy-button'].textContent = complete ? 'PLAY AGAIN →' : s.state === 'paused' ? 'RESUME →' : 'DEPLOY →';
-      n['menu-description'].textContent = complete
+      n['menu-description'].textContent = mission.practice ? 'Test movement, aim and reload freely. Choose a starting area or reset your position below.' : complete
         ? `${Math.floor(s.elapsed/60)}:${String(Math.floor(s.elapsed%60)).padStart(2,'0')} elapsed · ${mission.kills} hostiles down · ${mission.shots ? Math.round(mission.hits/mission.shots*100) : 0}% accuracy · ${s.retries} retries`
         : s.state === 'paused' ? 'Take a breath. The operation will resume when you are ready.' : 'Push through the checkpoint. Clear the side route. Secure extraction.';
     }

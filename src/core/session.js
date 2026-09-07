@@ -6,6 +6,7 @@ export class GameSession {
     this.lockstep = lockstep;
     this.restore = restore;
     this.state = lockstep ? 'playing' : 'ready';
+    this.mode = 'mission';
     this.deathRemaining = 0;
     this.message = '';
     this.elapsed = 0;

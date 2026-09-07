@@ -4,6 +4,7 @@ export class MissionSystem {
   static deps = ['world', 'ai', 'player'];
   constructor() {
     this.index = 0;
+    this.practiceEncounter = 0;
     this.hold = 0;
     this.shots = 0;
     this.hits = 0;
@@ -28,19 +29,36 @@ export class MissionSystem {
   }
   get current() { return this.encounters[this.index]; }
   get alive() { return this.ctx.get('ai').enemies.filter((e) => e.alive).length; }
+  get practice() { return this.ctx.session.mode === 'practice'; }
+  configure(mode, encounter = 0) {
+    if (!['mission', 'practice'].includes(mode)) throw new Error('Invalid game mode');
+    if (!Number.isInteger(encounter) || !this.encounters[encounter]) throw new Error('Invalid practice encounter');
+    if (this.ctx.session.playing || this.ctx.session.state === 'dead') throw new Error('Pause before changing mode');
+    const wasReady = this.ctx.session.state === 'ready';
+    this.ctx.session.mode = mode;
+    this.practiceEncounter = encounter;
+    this.ctx.session.retry(true);
+    if (wasReady) this.ctx.session.setState('ready');
+  }
+  resetPosition() {
+    if (!this.practice) return;
+    this.ctx.session.retry();
+    this.ctx.session.retries--;
+  }
   get objective() {
+    if (this.practice) return 'Explore freely · no enemies';
     if (this.alive) return `${this.current.objective} · ${this.alive} hostiles`;
     return this.index === this.encounters.length - 1
       ? `Reach extraction · secure area ${Math.ceil(Math.max(0, 8 - this.hold))}s`
       : 'Area clear · move to the checkpoint';
   }
   restore(full = false) {
-    if (full) { this.index = 0; this.shots = 0; this.hits = 0; this.kills = 0; }
+    if (full) { this.index = this.practice ? this.practiceEncounter : 0; this.shots = 0; this.hits = 0; this.kills = 0; }
     this.hold = 0;
-    return { spawn: this.current.spawn, enemySpawns: this.current.enemySpawns, encounter: this.index };
+    return { spawn: this.current.spawn, enemySpawns: this.practice ? [] : this.current.enemySpawns, encounter: this.index, practice: this.practice };
   }
   fixedUpdate(h, ctx) {
-    if (!ctx.session.playing || this.alive) return;
+    if (this.practice || !ctx.session.playing || this.alive) return;
     const { position } = ctx.get('player');
     const exit = this.current.exit;
     const inside = Math.hypot(position.x - exit.x, position.z - exit.z) <= exit.radius;

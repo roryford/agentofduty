@@ -13,7 +13,7 @@ async function fixture() {
  const ctx={events,input,get:id=>systems[id]};
  ctx.session=new GameSession({events,input,lockstep:true});
  const mission=new MissionSystem(); await mission.init(ctx);
- events.on('session:reset',p=>{enemies[0].alive=true;player.position.x=p.spawn.x;player.position.z=p.spawn.z;});
+ events.on('session:reset',p=>{enemies[0].alive=p.enemySpawns.length > 0;player.position.x=p.spawn.x;player.position.z=p.spawn.z;});
  return {ctx,mission,enemies,player};
 }
 test('checkpoint needs both area clear and player at rally, then resets next encounter',async()=>{
@@ -34,4 +34,28 @@ test('paused missions do not advance and resolved events count only player hits'
  ctx.events.emit('weapon:fire',{from:'player'});ctx.events.emit('weapon:fire',{from:'enemy-0'});
  ctx.events.emit('combat:hit',{from:'player',target:'enemy-0'});ctx.events.emit('combat:hit',{from:'enemy-0',target:'player'});
  assert.equal(mission.shots,1);assert.equal(mission.hits,1);
+});
+
+test('practice removes hostiles and suppresses progression even at extraction',async()=>{
+ const {ctx,mission,enemies,player}=await fixture();ctx.session.setState('ready');
+ mission.configure('practice',2);
+ assert.equal(ctx.session.state,'ready');assert.equal(mission.index,2);assert.equal(enemies[0].alive,false);
+ assert.deepEqual(mission.restore().enemySpawns,[]);assert.equal(mission.restore().practice,true);
+ ctx.session.start();player.position.z=-50;
+ for(let i=0;i<1200;i++)mission.fixedUpdate(1/120,ctx);
+ assert.equal(ctx.session.state,'playing');assert.equal(mission.hold,0);assert.equal(mission.index,2);
+});
+test('practice resets preserve selected area and switching back restores mission',async()=>{
+ const {ctx,mission,enemies,player}=await fixture();ctx.session.setState('ready');mission.configure('practice',1);
+ ctx.session.retry(true);assert.equal(mission.index,1);assert.equal(enemies[0].alive,false);
+ player.position.z=999;const retries=ctx.session.retries;mission.resetPosition();
+ assert.equal(player.position.z,mission.current.spawn.z);assert.equal(ctx.session.retries,retries);
+ ctx.session.pause();mission.configure('mission');
+ assert.equal(mission.index,0);assert.equal(enemies[0].alive,true);assert.equal(ctx.session.mode,'mission');
+});
+test('mode changes reject invalid or active-play requests without changing the session',async()=>{
+ const {ctx,mission}=await fixture();
+ assert.throws(()=>mission.configure('practice',0),/Pause/);assert.equal(ctx.session.mode,'mission');
+ ctx.session.pause();assert.throws(()=>mission.configure('invalid'),/mode/);
+ assert.throws(()=>mission.configure('practice',99),/encounter/);assert.equal(ctx.session.mode,'mission');
 });
