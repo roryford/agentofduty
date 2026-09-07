@@ -94,8 +94,9 @@ function installHooks(engine, lockstep) {
 
   if (!lockstep) {
     window.addEventListener('resize', () => {
-      const c = engine.ctx.canvas;
-      engine.resize(c.clientWidth || window.innerWidth, c.clientHeight || window.innerHeight);
+      // The renderer assigns explicit CSS pixels to the canvas. Reading its
+      // previous client size here keeps an old viewport after panel resizing.
+      engine.resize(window.innerWidth, window.innerHeight);
     });
   }
 }
