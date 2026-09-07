@@ -84,7 +84,7 @@ event requires a new row in the same commit):
 | Event | Payload |
 |---|---|
 | weapon:fire | `{weapon, from, origin, dir, seed}`; from is actor id |
-| weapon:reload | `{weapon, phase}`; phase start/end |
+| weapon:reload | `{weapon, phase}`; phase start/end/cancel |
 | weapon:shell | `{position, velocity}` |
 | bullet:impact | `{point, normal, surface, incident, damage}` |
 | bullet:tracer | `{from, to, speed}`; from/to are positions |
@@ -94,7 +94,7 @@ event requires a new row in the same commit):
 | actor:death | `{actor, point, impulse}` |
 | player:land | `{velocity, surface}` |
 | player:footstep | `{position, surface, running}` |
-| player:state | `{stance, sprinting, sliding, ads}` |
+| player:state | `{stance, sprinting, sliding, ads, vaulting}` |
 | explosion | `{position, radius, damage}` |
 | resize | `{width, height}` |
 | session:state | `{state, previous}` |

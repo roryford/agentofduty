@@ -21,7 +21,9 @@ npm run dev          # local play
 npm run build        # vite → dist/
 npm run assets       # Blender headless → public/models/*.glb (build-time only)
 npm run test         # node behavioural and verifier tests
-npm run gate         # tests + build + capture + real-GPU perf
+npm run gate         # tests + build + scenarios + capture + real-GPU perf
+npm run play -- --seconds 600  # real-input stability soak
+node tools/route.mjs  # real-input automated mission route
 node tools/diff.mjs  # pixel-diff captures/ vs baselines/ (exit nonzero on fail)
 ```
 
@@ -136,8 +138,10 @@ If a GLB fails to load, systems fall back to procedural meshes.
 ## Play / controls
 
 - Click canvas → pointer lock  
-- WASD move · Shift sprint · Space jump · LMB fire · **RMB or E = ADS** (holo reticle) · R reload  
-- Death → KIA overlay → auto-respawn ~2.5s  
+- WASD move · Shift sprint · C/Ctrl crouch · Space jump/vault · LMB fire · **RMB or E = ADS** (holo reticle) · R reload  
+- Escape/blur pauses combat and clears held input.
+- Death → KIA overlay → whole-checkpoint restore ~2.5s.
+- Clear hostiles and reach each rally point; final extraction requires an 8-second hold.  
 - Enemies: always full mesh (no far “blob” LOD)
 
 ## Baselines
@@ -146,7 +150,7 @@ Locked shots live in `baselines/`. After intentional visual changes:
 
 ```bash
 npm run gate
-cp captures/boot-street.png captures/enemy-approach.png captures/combat.png captures/manifest.json baselines/
+node --input-type=module -e "import fs from 'node:fs'; const m=JSON.parse(fs.readFileSync('captures/manifest.json')); for(const s of m.shots) fs.copyFileSync('captures/'+s.file,'baselines/'+s.file); fs.copyFileSync('captures/manifest.json','baselines/manifest.json');"
 node tools/diff.mjs
 ```
 

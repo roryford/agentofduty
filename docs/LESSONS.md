@@ -117,3 +117,19 @@ A small thing that is solid beats a large thing that is uneven.
 
 When adding art or systems, re-check `docs/BRIEF.md` quality bar and exit gate.
 Polish that regresses FPS below budget or unrelated baselines gets reverted.
+
+
+## Nightfall upgrade — September 2026
+
+- Port patterns rather than engines: game-lab's fidelity comparisons, three-tools'
+  separate real-input/repro checks, and silvermoon's named RNG/timing contracts
+  fit the existing 120 Hz system architecture without new runtime packages.
+- Asset contracts must inspect actual exported transforms and posed attachments.
+  Names and a correct mathematical heading do not prove that a rifle faces forward.
+- Compare active checkpoint state and disabled dormant colliders; unused pool
+  storage need not equal an earlier encounter's unused storage.
+- One-second cadence counts can hide tick drift. Test long-run intervals too.
+- A renderer can look fast while gameplay is paused. Device gates need GPU timing,
+  real frame pacing, simulation liveness, valid samples and demonstrated failures.
+- Treat screenshots as evidence: they exposed hidden glass, an obsolete scope,
+  an off-center ADS reticle, opaque flash geometry and an offscreen reload.

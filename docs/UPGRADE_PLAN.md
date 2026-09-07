@@ -1,6 +1,7 @@
 # Agent of Duty — full upgrade plan
 
-Status: approved by Rory; implementation in progress in codex/upgrade.
+Status: implemented locally on codex/upgrade; final review and stability verification in progress.
+Publishing is pending explicit GitHub approval after automatic approval review rejected the push.
 Assessment: 2026-09-07, current local main checkout.
 
 ## 1. Product target
@@ -30,7 +31,7 @@ death/respawn were attempted. Native input visibly reduced ammunition to 27/90.
 The automation surface does not expose sustained key holds; timing-sensitive
 ADS, recoil tracking, sprinting, and audio quality remain ungraded. Short key
 taps can occur between simulation ticks. A failed tap is not proof of broken
-game input. No new real-GPU performance measurement was taken.
+game input. At assessment time no new real-GPU measurement had been taken; upgrade measurements are recorded below.
 
 ### Observed in the live build
 
@@ -295,3 +296,40 @@ commit/push/draft-PR authorization before launching that workflow. Paid assets,
 new runtime dependencies, and a public deployment remain separate decisions.
 Estimate the remaining work after M0/M1 expose input, asset and GPU constraints;
 do not promise a calendar date based only on source inspection.
+
+## 9. Upgrade evidence and remaining acceptance
+
+Implemented: session lifecycle and whole-checkpoint reset; fixed-tick rifle
+handling and recoil; crouch/vault/regen; cover/perception/burst/reload squad AI;
+three authored encounter spaces; original articulated assets; HUD/settings and
+rally guidance; directional procedural audio, near misses and ambience; impact
+marks; deterministic and real-input verification.
+
+The first complete local gate passed 54 behavioral/asset/verifier tests, three
+seeded integrated mission/reset runs, deliberately missing-model fallback, and
+12 staged captures. On Apple M5 Pro / Chrome Metal at 2560x1440, per-encounter
+GPU medians were 1.30–1.47 ms and rAF p95 16.7–16.8 ms. Local boot was 1.09 s.
+Peak sampled draws were 428/204/288; checkpoint capture peaked at 435 after
+instancing the windows (down from 668). The initial aspirational 300 total draws
+is superseded by the existing 512 gate: preserve authored detail within the
+measured GPU headroom, and keep the stricter zero-new-program requirement.
+
+Real-input smoke passed deploy/no accidental shot, movement, held ADS/fire,
+reload/refill/conservation, held-input Escape cleanup, and 30-second ready/pause
+freezes. Native Chrome also accepted Deploy/movement/Escape. Embedded automation
+may not grant pointer lock; its failure leaves the game safely on the briefing.
+An automated DOM-input route cleared 11 hostiles and completed all stages in
+33.5 s with no retry. It uses exact scene-state aiming and navigation, and does
+not establish human mission duration, difficulty, or aiming comfort.
+
+The 5–8 minute human mission-duration target and subjective recoil/audio grading
+remain unverified. The assets use lightweight articulated pivots, not cinematic
+motion-capture clips. These limits should guide a player-led tuning pass rather
+than be hidden behind scripted capture or synthetic timing claims. No runtime
+packages, paid assets, multiplayer or public deployment were added.
+
+Independent review found and drove fixes for simulation transition/liveness,
+death audio, model axes and attachment transforms, hidden window panes, enemy
+reload interruption, corpse cues, collision-constrained AI/vault motion, and
+long-run rifle cadence. Final current-head verdict and soak result are recorded
+in the session delivery report.
