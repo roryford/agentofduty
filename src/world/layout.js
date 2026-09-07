@@ -26,7 +26,7 @@ export const WORLD_ENCOUNTERS = Object.freeze([
     id: 'lantern-court',
     name: 'Lantern Court',
     objective: 'Clear the courtyard and reach the north passage',
-    spawn: Object.freeze({ x: -5, y: 0, z: 13, yaw: -Math.PI * 0.5 }),
+    spawn: Object.freeze({ x: -5, y: 0, z: 13, yaw: Math.PI * 0.5 }),
     enemySpawns: Object.freeze([
       Object.freeze({ x: -16, z: 8, role: 'holder' }),
       Object.freeze({ x: -25, z: 1, role: 'flanker' }),

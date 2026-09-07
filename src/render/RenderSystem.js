@@ -20,7 +20,7 @@ export class RenderSystem {
 
   constructor() {
     this.prewarmed = false;
-    this._exposure = 1.34;
+    this._exposure = 1.48;
   }
 
   async init(ctx) {

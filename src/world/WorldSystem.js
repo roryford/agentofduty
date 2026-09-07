@@ -43,6 +43,7 @@ export class WorldSystem {
     this._texturesOwned = [];
     this._colliderIds = [];
     this._boxCache = new Map();
+    this._facadeWindows = [];
     this._physics = null;
 
     this.room = {
@@ -133,9 +134,9 @@ export class WorldSystem {
     };
 
     palette.windowWarm = new THREE.MeshStandardMaterial({
-      color: 0x4f3018,
-      emissive: 0xe68a42,
-      emissiveIntensity: 0.72,
+      color: 0x3f2b1d,
+      emissive: 0xc56f37,
+      emissiveIntensity: 0.42,
       roughness: 0.72,
       metalness: 0,
       toneMapped: true,
@@ -287,6 +288,7 @@ export class WorldSystem {
 
     this._box(root, physics, 0, 7, -61.5, 42, 14, 3, p.stone, 'concrete');
     this._box(root, physics, 0, 6, 61.5, 38, 12, 3, p.brick, 'concrete');
+    this._flushFacadeWindows(root, p.darkMetal);
   }
 
   _buildingX(root, physics, side, spec, p) {
@@ -305,7 +307,15 @@ export class WorldSystem {
       for (let col = 0; col < cols; col++) {
         const mat = winMats[(floor * 3 + col + (side > 0 ? 1 : 0)) % winMats.length];
         const z = spec.z - spec.w * 0.5 + 1.8 + col * ((spec.w - 3.6) / Math.max(1, cols - 1));
-        this._windowX(root, faceX - side * 0.045, floor * 3.0 + 1.0, z, mat, p.darkMetal);
+        this._windowX(
+          root,
+          faceX - side * 0.045,
+          floor * 3.0 + 1.0,
+          z,
+          mat,
+          p.darkMetal,
+          -side,
+        );
       }
     }
 
@@ -313,6 +323,15 @@ export class WorldSystem {
       const glass = new THREE.Mesh(this._sharedBox(0.08, 2.25, Math.min(5.8, spec.w * 0.52)), p.windowWarm);
       glass.position.set(faceX - side * 0.07, 1.35, spec.z);
       root.add(glass);
+      const frontage = Math.min(5.8, spec.w * 0.52);
+      for (const offset of [-frontage * 0.28, 0, frontage * 0.28]) {
+        const mullion = new THREE.Mesh(this._sharedBox(0.12, 2.28, 0.09), p.darkMetal);
+        mullion.position.set(faceX - side * 0.13, 1.35, spec.z + offset);
+        root.add(mullion);
+      }
+      const sill = new THREE.Mesh(this._sharedBox(0.15, 0.14, frontage), p.darkMetal);
+      sill.position.set(faceX - side * 0.12, 0.24, spec.z);
+      root.add(sill);
       const canopy = new THREE.Mesh(this._sharedBox(1.25, 0.13, Math.min(6.2, spec.w * 0.56)), p.darkMetal);
       canopy.position.set(faceX - side * 0.62, 2.65, spec.z);
       root.add(canopy);
@@ -334,13 +353,51 @@ export class WorldSystem {
     }
   }
 
-  _windowX(root, x, y, z, glassMat, frameMat) {
-    const frame = new THREE.Mesh(this._sharedBox(0.08, 1.55, 1.85), frameMat);
-    frame.position.set(x, y, z);
-    root.add(frame);
-    const glass = new THREE.Mesh(this._sharedBox(0.06, 1.22, 1.5), glassMat);
-    glass.position.set(x, y, z);
-    root.add(glass);
+  _windowX(root, x, y, z, glassMat, frameMat, normalX) {
+    this._facadeWindows.push({ x, y, z, normalX, glassMat, frameMat });
+  }
+
+  _flushFacadeWindows(root, frameMat) {
+    if (this._facadeWindows.length === 0) return;
+    const matrix = new THREE.Matrix4();
+    const frameGeometry = this._sharedBox(0.08, 1.55, 1.85);
+    const glassGeometry = this._sharedBox(0.06, 1.22, 1.5);
+    const frames = new THREE.InstancedMesh(frameGeometry, frameMat, this._facadeWindows.length);
+    frames.name = 'window-frames-batch';
+    frames.receiveShadow = true;
+    for (let i = 0; i < this._facadeWindows.length; i++) {
+      const window = this._facadeWindows[i];
+      frames.setMatrixAt(i, matrix.makeTranslation(window.x, window.y, window.z));
+    }
+    frames.instanceMatrix.needsUpdate = true;
+    root.add(frames);
+
+    const byMaterial = new Map();
+    for (const window of this._facadeWindows) {
+      let placements = byMaterial.get(window.glassMat);
+      if (!placements) {
+        placements = [];
+        byMaterial.set(window.glassMat, placements);
+      }
+      placements.push(window);
+    }
+    let batch = 0;
+    for (const [material, placements] of byMaterial) {
+      const glass = new THREE.InstancedMesh(glassGeometry, material, placements.length);
+      glass.name = `window-glass-batch-${batch++}`;
+      glass.userData.placements = placements.map((window) => ({
+        frameX: window.x,
+        glassX: window.x + window.normalX * 0.075,
+        normalX: window.normalX,
+      }));
+      for (let i = 0; i < placements.length; i++) {
+        const window = placements[i];
+        matrix.makeTranslation(window.x + window.normalX * 0.075, window.y, window.z);
+        glass.setMatrixAt(i, matrix);
+      }
+      glass.instanceMatrix.needsUpdate = true;
+      root.add(glass);
+    }
   }
 
   _addSignX(root, x, y, z, side, text, color) {
@@ -786,6 +843,7 @@ export class WorldSystem {
     this._texturesOwned.length = 0;
     this._colliderIds.length = 0;
     this._boxCache.clear();
+    this._facadeWindows.length = 0;
     this._physics = null;
   }
 }

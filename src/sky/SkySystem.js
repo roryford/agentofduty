@@ -41,14 +41,14 @@ export class SkySystem {
     scene.fog = new THREE.FogExp2(this.nightColor, 0.0078);
     ctx.renderer.setClearColor(this.nightColor, 1);
 
-    this._amb = new THREE.AmbientLight(0x503c2b, 0.3);
+    this._amb = new THREE.AmbientLight(0x584939, 0.48);
     this._root.add(this._amb);
 
-    this._hemi = new THREE.HemisphereLight(0x647ba0, 0x171310, 0.62);
+    this._hemi = new THREE.HemisphereLight(0x6f86aa, 0x1d1712, 0.82);
     this._root.add(this._hemi);
 
     // Moon key (cool rim)
-    this._keyDir = new THREE.DirectionalLight(0x9fb8dc, 0.78);
+    this._keyDir = new THREE.DirectionalLight(0x9fb8dc, 0.92);
     this._keyDir.position.set(-28, 42, 24);
     this._root.add(this._keyDir);
 

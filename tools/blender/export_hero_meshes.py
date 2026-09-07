@@ -17,7 +17,7 @@ import math
 import os
 
 import bpy
-from mathutils import Euler, Vector
+from mathutils import Euler, Matrix, Vector
 
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
 OUT_DIR = os.path.join(ROOT, "public", "models")
@@ -180,6 +180,22 @@ def select_hierarchy(root):
     bpy.context.view_layer.objects.active = root
 
 
+def mirror_hierarchy_y(root):
+    """
+    Convert Blender-authored -Y-forward geometry to the runtime -Z contract.
+
+    Blender's current glTF exporter maps local -Y to glTF +Z. Reflecting every
+    hierarchy translation and mesh across Blender Y yields glTF -Z while keeping
+    articulation pivots and the exported root transform at identity.
+    """
+    reflection = Matrix.Scale(-1.0, 4, Vector((0, 1, 0)))
+    for obj in (root, *root.children_recursive):
+        obj.location.y *= -1
+        if obj.type == "MESH":
+            obj.data.transform(reflection)
+            obj.data.flip_normals()
+
+
 def bevel(obj, width=0.008, segments=2):
     bpy.context.view_layer.objects.active = obj
     obj.select_set(True)
@@ -308,10 +324,10 @@ def build_rifle():
     rifle["forward_axis"] = "-Z"
     parent_keep_world(rifle_body, rifle)
     parent_keep_world(magazine, rifle)
-    muzzle_socket = add_empty("muzzle_socket", (0, -0.515, 0.02))
+    muzzle_socket = add_empty("muzzle_socket", (0, -0.515, 0.02), rifle)
     muzzle_socket["forward_axis"] = "-Y Blender / -Z glTF"
-    parent_keep_world(muzzle_socket, rifle)
     print_size(rifle_body, "rifle")
+    mirror_hierarchy_y(rifle)
     select_hierarchy(rifle)
     export_glb(os.path.join(OUT_DIR, "rifle.glb"))
 
@@ -441,6 +457,7 @@ def build_enemy():
     antenna = add_capsule_between("radio_antenna", 0.012, (0.13, 0.22, 1.48), (0.18, 0.22, 1.78), dark, 8)
     parent_keep_world(antenna, rig)
 
+    mirror_hierarchy_y(rig)
     select_hierarchy(rig)
     print("  enemy articulation: arm_l arm_r leg_l leg_r head; weapon_socket; muzzle_socket")
     export_glb(os.path.join(OUT_DIR, "enemy.glb"))

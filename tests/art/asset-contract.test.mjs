@@ -52,6 +52,14 @@ test('enemy GLB contains the direct-pivot and attachment hierarchy', async () =>
   );
   assert.ok(vertexCount > 2_000, `enemy detail unexpectedly low: ${vertexCount}`);
   assert.ok(vertexCount < 80_000, `enemy geometry budget exceeded: ${vertexCount}`);
+
+  const translation = (name) => json.nodes[nodeIndex(json, name)].translation || [0, 0, 0];
+  assert.ok(translation('goggle_lens')[2] < 0, 'face points away from runtime -Z');
+  assert.ok(translation('plate_carrier')[2] < 0, 'chest plate is behind torso');
+  assert.ok(translation('radio_pack')[2] > 0, 'radio pack is not behind torso');
+  assert.ok(translation('weapon_socket')[2] < 0, 'weapon hand is not forward');
+  assert.ok(translation('enemy_rifle_barrel')[2] < -0.5, 'enemy rifle points away from -Z');
+  assert.ok(translation('muzzle_socket')[2] < -0.7, 'enemy muzzle is not forward');
 });
 
 test('hero GLBs stay present and within the asset budget', async () => {
@@ -69,6 +77,8 @@ test('rifle GLB leaves the runtime holo unobstructed and exposes reload parts', 
   assert.ok(isDescendant(json, 'rifle', 'muzzle_socket'));
   assert.equal(nodeIndex(json, 'optic'), -1, 'obsolete baked cylindrical optic returned');
   assert.equal(nodeIndex(json, 'optic_mount'), -1, 'obsolete optic mount returned');
+  const muzzle = json.nodes[nodeIndex(json, 'muzzle_socket')].translation;
+  assert.ok(muzzle && muzzle[2] < -0.45, 'rifle muzzle socket must point into camera -Z');
 });
 
 test('runtime rig resolver degrades missing nodes to null', () => {

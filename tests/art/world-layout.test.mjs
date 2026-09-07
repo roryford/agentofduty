@@ -107,6 +107,43 @@ test('all mission anchors are physically clear and connected by nav', async () =
   world.dispose();
 });
 
+test('facade glass clears the solid frame along each wall normal', async () => {
+  const { world } = await buildWorld();
+  let frameBatch = null;
+  const glassBatches = [];
+  for (const root of world._roots) {
+    root.traverse((object) => {
+      if (object.name === 'window-frames-batch') frameBatch = object;
+      if (object.name.startsWith('window-glass-batch-')) glassBatches.push(object);
+    });
+  }
+  assert.ok(frameBatch?.isInstancedMesh);
+  assert.ok(frameBatch.count >= 100, `expected authored window set, got ${frameBatch?.count}`);
+  assert.ok(glassBatches.length <= 3, `window glass uses ${glassBatches.length} draw batches`);
+  const placementCount = glassBatches.reduce((sum, batch) => sum + batch.count, 0);
+  assert.equal(placementCount, frameBatch.count);
+
+  const matrix = new THREE.Matrix4();
+  const normals = new Set();
+  for (const glass of glassBatches) {
+    const frameHalfDepth = frameBatch.geometry.parameters.width * 0.5;
+    const glassHalfDepth = glass.geometry.parameters.width * 0.5;
+    for (let i = 0; i < glass.count; i++) {
+      const placement = glass.userData.placements[i];
+      normals.add(placement.normalX);
+      glass.getMatrixAt(i, matrix);
+      assert.ok(Math.abs(matrix.elements[12] - placement.glassX) < 1e-5);
+      const outwardDistance = (placement.glassX - placement.frameX) * placement.normalX;
+      assert.ok(
+        outwardDistance >= frameHalfDepth + glassHalfDepth,
+        `glass remains inside frame: ${outwardDistance} < ${frameHalfDepth + glassHalfDepth}`,
+      );
+    }
+  }
+  assert.deepEqual(normals, new Set([-1, 1]));
+  world.dispose();
+});
+
 test('material system retains non-mirror wet asphalt tuning', () => {
   const source = MaterialsSystem.prototype.init.toString();
   assert.match(source, /roughBase:\s*0\.72/);
