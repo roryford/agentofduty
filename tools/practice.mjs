@@ -15,7 +15,7 @@ try {
   const c=window.__ENGINE__.ctx,p=c.get('player'),w=c.get('weapons'),ai=c.get('ai'),m=c.get('mission');
   const cross=document.querySelector('.aim-cross'),r=c.canvas.getBoundingClientRect(),h=cross.getBoundingClientRect();
   const point=w._reticle.position.clone();w._reticle.getWorldPosition(point);point.project(c.viewCamera);
-  return {mode:c.session.mode,state:c.session.state,hostiles:ai.enemies.filter(e=>e.alive).length,enemyColliders:ai.enemies.filter(e=>c.get('physics')._enabled[e.collider]).length,
+  return {fov:c.session.settings.fov,mode:c.session.mode,state:c.session.state,hostiles:ai.enemies.filter(e=>e.alive).length,enemyColliders:ai.enemies.filter(e=>c.get('physics')._enabled[e.collider]).length,
    tick:c.time.fixedFrame,position:p.position.toArray(),health:p.health,area:m.index,ads:w.ads,reloading:w._reloading,ammo:w.current.ammo,reserve:w.current.reserve,
    reticleVisible:w._reticle.visible,reticlePixels:Math.hypot(point.x*r.width/2,point.y*r.height/2),hudHidden:cross.hidden,hudOffset:[h.x+h.width/2-r.x-r.width/2,h.y+h.height/2-r.y-r.height/2]};
  });
@@ -33,8 +33,15 @@ try {
  await page.keyboard.down('KeyS');await page.keyboard.down('ShiftLeft');await page.waitForTimeout(3500);await page.keyboard.up('KeyS');await page.keyboard.up('ShiftLeft');
  await page.keyboard.down('KeyD');await page.keyboard.down('KeyS');await page.waitForTimeout(2500);await page.keyboard.up('KeyD');await page.keyboard.up('KeyS');
  checkPractice(await observe());checkMovement(beforeMove,await observe());
- for(const viewport of [{width:1280,height:720},{width:900,height:1000},{width:1800,height:720}]){
-  await page.setViewportSize(viewport);await page.waitForTimeout(150);
+ for(const viewport of [{width:1280,height:720,fov:80},{width:900,height:1000,fov:65},{width:1800,height:720,fov:100}]){
+  await page.setViewportSize({width:viewport.width,height:viewport.height});await page.waitForTimeout(150);
+  if(viewport.fov!==80){
+   await page.keyboard.press('Escape');await page.waitForFunction(()=>window.__ENGINE__.ctx.session.state==='paused');
+   if(!await page.locator('details').evaluate(el=>el.open))await page.locator('summary').click();
+   await page.getByLabel('FIELD OF VIEW',{exact:true}).focus();await page.keyboard.press(viewport.fov===65?'Home':'End');
+   assert.equal((await observe()).fov,viewport.fov);
+   await page.getByRole('button',{name:'RESUME'}).click();await page.waitForFunction(()=>window.__ENGINE__.ctx.session.playing);
+  }
   checkAim(await observe(),'hip');const beforeFire=await observe();await page.keyboard.down('KeyE');await page.waitForTimeout(400);
   for(let i=0;i<12;i++){
    if(i===2){await page.mouse.down();await page.keyboard.down('KeyA');}

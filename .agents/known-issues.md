@@ -7,3 +7,5 @@
 
 - 2026-09-07 — Blender printed an uncaught Python export traceback but npm reported success → Blender defaults to exit zero for Python exceptions → pass `--python-exit-code 1` before the script and verify a real injected exception exits nonzero.
 - 2026-09-07 — Blender regression aborted at USD platform initialization inside the restricted sandbox, before Python executed → native Blender startup requires the approved execution context used by the full gate → rerun the same bounded regression with sandbox escalation; it passes without changing the test or assets.
+
+- 2026-09-07 — Crosshair shifted away from the rendered view after panel resize → resize handler reused canvas client dimensions after assigning fixed CSS pixels, while HUD followed viewport → resize from window dimensions; real-input practice regression fails on the old behavior and checks hip/ADS alignment across three aspect ratios.
