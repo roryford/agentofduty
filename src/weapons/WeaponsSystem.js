@@ -24,6 +24,45 @@ const HIP_ROT = { x: 0.05, y: 0.1, z: 0.03 };
 // Align holographic optic with screen center when ADS
 const ADS_POS = { x: 0.0, y: -0.118, z: -0.28 };
 const ADS_ROT = { x: 0.0, y: 0.0, z: 0.0 };
+const SPRINT_POS = { x: 0.3, y: -0.34, z: -0.42 };
+const SPRINT_ROT = { x: 0.42, y: 0.15, z: 0.18 };
+const ADS_SECONDS = 0.2;
+const SPRINT_TO_FIRE = 0.22;
+
+/** Aim-relative spread. rightOffset/upOffset are normalized sample coordinates. */
+export function computeSpreadDirection(forward, rightOffset, upOffset, spread, out = {}) {
+  let fx = forward.x;
+  let fy = forward.y;
+  let fz = forward.z;
+  const fl = Math.hypot(fx, fy, fz) || 1;
+  fx /= fl;
+  fy /= fl;
+  fz /= fl;
+  // right = normalize(forward x worldUp), with a stable pole fallback.
+  let rx = -fz;
+  let ry = 0;
+  let rz = fx;
+  let rl = Math.hypot(rx, rz);
+  if (rl < 1e-6) {
+    rx = 1;
+    ry = 0;
+    rz = 0;
+    rl = 1;
+  }
+  rx /= rl;
+  rz /= rl;
+  const ux = ry * fz - rz * fy;
+  const uy = rz * fx - rx * fz;
+  const uz = rx * fy - ry * fx;
+  let dx = fx + rx * rightOffset * spread + ux * upOffset * spread;
+  let dy = fy + ry * rightOffset * spread + uy * upOffset * spread;
+  let dz = fz + rz * rightOffset * spread + uz * upOffset * spread;
+  const dl = Math.hypot(dx, dy, dz) || 1;
+  out.x = dx / dl;
+  out.y = dy / dl;
+  out.z = dz / dl;
+  return out;
+}
 
 export class WeaponsSystem {
   static id = 'weapons';
@@ -52,7 +91,12 @@ export class WeaponsSystem {
     this._cooldown = 0;
     this._reloading = false;
     this._reloadLeft = 0;
+    this._reloadHeld = false;
     this._firePeriod = 60 / this.current.rpm;
+    this.handlingState = 'hip';
+    this.ads = 0;
+    this._adsPrev = 0;
+    this._sprintRecovery = 0;
 
     this._origin = { x: 0, y: 0, z: 0 };
     this._dir = { x: 0, y: 0, z: -1 };
@@ -65,7 +109,6 @@ export class WeaponsSystem {
     this._look = { x: 0, y: 0, z: -1 };
     this._rng = null;
     this._lockstep = false;
-    this._autoFireArmed = false;
 
     this._gun = null;
     this._gunRoot = null;
@@ -85,16 +128,21 @@ export class WeaponsSystem {
     this._mats = [];
     this._viewLights = [];
     this._usingGltf = false;
+    this._unsubReset = null;
+    this._magazine = null;
+    this._magazineRest = new THREE.Vector3();
+    this._magazineRestRotation = new THREE.Euler();
   }
 
   async init(ctx) {
-    this._rng = ctx.rng.fork();
+    this._rng = ctx.rng.fork('weapons');
     this._firePeriod = 60 / this.current.rpm;
     this._lockstep =
       new URLSearchParams(window.location.search).get('lockstep') === '1' ||
       window.__LOCKSTEP__ === true;
 
     await this._buildViewmodel(ctx);
+    this._unsubReset = ctx.events.on('session:reset', (payload) => this.reset(payload, ctx));
   }
 
   async _buildViewmodel(ctx) {
@@ -123,6 +171,20 @@ export class WeaponsSystem {
 
     this._buildHand(mount);
     this._buildOptic(mount);
+    this._magazine = this._gun?.getObjectByName?.('magazine') ?? null;
+    if (!this._magazine) {
+      const magMaterial = new THREE.MeshStandardMaterial({ color: 0x24282d, metalness: 0.55, roughness: 0.5 });
+      const magGeometry = new THREE.BoxGeometry(0.045, 0.105, 0.055);
+      this._mats.push(magMaterial);
+      this._geoms.push(magGeometry);
+      this._magazine = new THREE.Mesh(magGeometry, magMaterial);
+      this._magazine.name = 'magazine';
+      this._magazine.position.set(0, -0.075, 0.035);
+      this._magazine.rotation.x = -0.12;
+      mount.add(this._magazine);
+    }
+    this._magazineRest.copy(this._magazine.position);
+    this._magazineRestRotation.copy(this._magazine.rotation);
 
     // Muzzle flash tip
     const glow = new THREE.MeshBasicMaterial({
@@ -294,9 +356,13 @@ export class WeaponsSystem {
 
     // Rail mount base
     box(0.028, 0.012, 0.06, 0, 0.07, -0.02, housing);
-    // Optic body (window frame)
-    box(0.04, 0.038, 0.01, 0, 0.1, 0.0, housing); // rear frame
-    box(0.04, 0.038, 0.01, 0, 0.1, -0.055, housing); // front frame
+    // Open front/rear rims: four rails per plane, never an opaque pane.
+    for (const z of [0, -0.055]) {
+      box(0.04, 0.006, 0.008, 0, 0.116, z, housing);
+      box(0.04, 0.006, 0.008, 0, 0.084, z, housing);
+      box(0.006, 0.038, 0.008, -0.017, 0.1, z, housing);
+      box(0.006, 0.038, 0.008, 0.017, 0.1, z, housing);
+    }
     box(0.008, 0.038, 0.055, -0.016, 0.1, -0.027, housing); // left
     box(0.008, 0.038, 0.055, 0.016, 0.1, -0.027, housing); // right
     box(0.04, 0.008, 0.055, 0, 0.116, -0.027, housing); // top
@@ -346,12 +412,19 @@ export class WeaponsSystem {
 
   fixedUpdate(h, ctx) {
     const player = ctx.get('player');
-    if (!player.alive) return;
+    if (!player.alive || (ctx.session ? !ctx.session.playing : ctx.input.active === false)) {
+      this.firing = false;
+      return;
+    }
 
-    const rec = this.current.recovery * h;
-    this.recoilPitch = Math.max(0, this.recoilPitch - rec * this.recoilPitch * 4 - rec * 0.01);
-    if (this.recoilYaw > 0) this.recoilYaw = Math.max(0, this.recoilYaw - rec * 0.02);
-    else this.recoilYaw = Math.min(0, this.recoilYaw + rec * 0.02);
+    // Recover exactly the camera impulse still owned by the weapon.
+    const oldPitch = this.recoilPitch;
+    const oldYaw = this.recoilYaw;
+    const recovery = Math.exp(-this.current.recovery * h);
+    this.recoilPitch *= recovery;
+    this.recoilYaw *= recovery;
+    player.pitch += this.recoilPitch - oldPitch;
+    player.yaw += this.recoilYaw - oldYaw;
     this.heat = Math.max(0, this.heat - h * 1.5);
 
     this._kickPos.x *= Math.exp(-12 * h);
@@ -361,7 +434,8 @@ export class WeaponsSystem {
     this._kickRot.y *= Math.exp(-10 * h);
     this._kickRot.z *= Math.exp(-10 * h);
 
-    if (this._cooldown > 0) this._cooldown -= h;
+    this._cooldown = Math.max(0, this._cooldown - h);
+    this._sprintRecovery = player.sprinting ? SPRINT_TO_FIRE : Math.max(0, this._sprintRecovery - h);
     if (this._reloading) {
       this._reloadLeft -= h;
       if (this._reloadLeft <= 0) {
@@ -370,9 +444,15 @@ export class WeaponsSystem {
         this.current.ammo += take;
         this.current.reserve -= take;
         this._reloading = false;
+        this._reloadLeft = 0;
         ctx.events.emit('weapon:reload', { weapon: this.current.id, phase: 'end' });
       }
     }
+
+    this._adsPrev = this.ads;
+    const adsTarget = player.ads && !this._reloading && !player.sprinting ? 1 : 0;
+    const adsStep = h / ADS_SECONDS;
+    this.ads += Math.sign(adsTarget - this.ads) * Math.min(Math.abs(adsTarget - this.ads), adsStep);
 
     if (this._muzzleLife > 0) {
       this._muzzleLife -= h;
@@ -388,16 +468,12 @@ export class WeaponsSystem {
     const wantFire = !!(input.buttons[0] || input.keys['KeyF']);
     const wantReload = !!input.keys['KeyR'];
 
-    if (this._lockstep && ctx.time.fixedFrame > 240 && ctx.time.fixedFrame < 380) {
-      this._autoFireArmed = true;
-    } else if (this._lockstep) {
-      this._autoFireArmed = false;
-    }
-
-    const fire = wantFire || this._autoFireArmed;
+    const fire = wantFire;
+    const reloadPressed = wantReload && !this._reloadHeld;
+    this._reloadHeld = wantReload;
 
     if (
-      wantReload &&
+      reloadPressed &&
       !this._reloading &&
       this.current.ammo < this.current.magSize &&
       this.current.reserve > 0
@@ -406,7 +482,7 @@ export class WeaponsSystem {
     }
 
     this.firing = false;
-    if (fire && !this._reloading && this._cooldown <= 0) {
+    if (fire && !this._reloading && this._cooldown <= 0 && this._sprintRecovery <= 0) {
       if (this.current.ammo > 0) {
         this._fire(ctx, player);
         this._cooldown = this._firePeriod;
@@ -416,12 +492,15 @@ export class WeaponsSystem {
       }
     }
 
-    if (this.recoilPitch > 0.0001 || Math.abs(this.recoilYaw) > 0.0001) {
-      player.pitch += this.recoilPitch * h * 12;
-      player.yaw += this.recoilYaw * h * 12;
-      const lim = Math.PI * 0.5 - 0.01;
-      if (player.pitch > lim) player.pitch = lim;
-    }
+    this.handlingState = this._reloading
+      ? 'reload'
+      : player.sprinting
+        ? 'sprint'
+        : this._sprintRecovery > 0
+          ? 'sprint-recovery'
+          : this.ads > 0.98
+            ? 'ads'
+            : 'hip';
   }
 
   update(dt, ctx) {
@@ -432,11 +511,10 @@ export class WeaponsSystem {
     this._gunRoot.visible = player.alive;
     if (!player.alive) return;
 
-    // ADS blend (no ADS while reloading)
-    const wantAds = player.ads && !this._reloading;
-    const adsSpeed = 10;
-    this._adsBlend += ((wantAds ? 1 : 0) - this._adsBlend) * Math.min(1, dt * adsSpeed);
-    const a = this._adsBlend;
+    // Presentation interpolates the fixed-tick handling state.
+    const alpha = ctx.time.alpha ?? 1;
+    const a = this._adsPrev + (this.ads - this._adsPrev) * alpha;
+    this._adsBlend = a;
 
     // FOV punch on ADS
     const hipFov = 55;
@@ -444,8 +522,12 @@ export class WeaponsSystem {
     ctx.viewCamera.fov = hipFov + (adsFov - hipFov) * a;
     ctx.viewCamera.updateProjectionMatrix();
     // World camera slight ADS zoom
-    ctx.camera.fov = 75 + (62 - 75) * a;
-    ctx.camera.updateProjectionMatrix();
+    const baseFov = ctx.session?.settings?.fov ?? 80;
+    const worldFov = baseFov + (baseFov * 0.78 - baseFov) * a;
+    if (Math.abs(ctx.camera.fov - worldFov) > 0.01) {
+      ctx.camera.fov = worldFov;
+      ctx.camera.updateProjectionMatrix();
+    }
 
     // Smoothed pose hip → ADS
     this._posePos.x = HIP_POS.x + (ADS_POS.x - HIP_POS.x) * a;
@@ -455,13 +537,22 @@ export class WeaponsSystem {
     this._poseRot.y = HIP_ROT.y + (ADS_ROT.y - HIP_ROT.y) * a;
     this._poseRot.z = HIP_ROT.z + (ADS_ROT.z - HIP_ROT.z) * a;
 
+    const sprintBlend = player.sprinting ? 1 : Math.min(1, this._sprintRecovery / SPRINT_TO_FIRE);
+    this._posePos.x += (SPRINT_POS.x - HIP_POS.x) * sprintBlend * (1 - a);
+    this._posePos.y += (SPRINT_POS.y - HIP_POS.y) * sprintBlend * (1 - a);
+    this._posePos.z += (SPRINT_POS.z - HIP_POS.z) * sprintBlend * (1 - a);
+    this._poseRot.x += (SPRINT_ROT.x - HIP_ROT.x) * sprintBlend * (1 - a);
+    this._poseRot.y += (SPRINT_ROT.y - HIP_ROT.y) * sprintBlend * (1 - a);
+    this._poseRot.z += (SPRINT_ROT.z - HIP_ROT.z) * sprintBlend * (1 - a);
+
     const spd = Math.hypot(player.velocity.x, player.velocity.z);
     if (player.grounded && spd > 0.4 && a < 0.5) {
       this._bob += dt * (player.sprinting ? 14 : 10);
     } else {
       this._bob *= 0.9;
     }
-    const bobScale = (1 - a * 0.85) * Math.min(1, spd / 5);
+    const motionScale = ctx.session?.settings?.reducedMotion ? 0.25 : 1;
+    const bobScale = (1 - a * 0.85) * Math.min(1, spd / 5) * motionScale;
     const bobY = Math.sin(this._bob) * 0.012 * bobScale;
     const bobX = Math.cos(this._bob * 0.5) * 0.008 * bobScale;
 
@@ -474,11 +565,18 @@ export class WeaponsSystem {
       reloadYaw = 0.35 * wave;
     }
 
+    let wallLower = 0;
+    const physics = ctx.get('physics');
+    player.getEyePosition(this._eye);
+    player.getLookDir(this._look);
+    const wall = physics.raycast(this._eye.x, this._eye.y, this._eye.z, this._look.x, this._look.y, this._look.z, 0.75, LAYER_STATIC);
+    if (wall) wallLower = (1 - wall.distance / 0.75) * 0.16;
+
     // ADS: less kick translation
-    const kickScale = 1 - a * 0.55;
+    const kickScale = (1 - a * 0.55) * motionScale;
     this._gunRoot.position.set(
       this._posePos.x + bobX + this._kickPos.x * kickScale,
-      this._posePos.y + bobY + this._kickPos.y * kickScale + reloadDip,
+      this._posePos.y + bobY + this._kickPos.y * kickScale + reloadDip - wallLower,
       this._posePos.z + this._kickPos.z * kickScale,
     );
     this._gunRoot.rotation.set(
@@ -487,10 +585,23 @@ export class WeaponsSystem {
       this._poseRot.z + this._kickRot.z * kickScale,
     );
 
-    // Hand: hide fully in ADS so it doesn't block the optic
+    // The support hand remains visible through ADS and moves with the magazine.
     if (this._hand) {
-      this._hand.visible = a < 0.55;
-      this._hand.position.y = -0.02 - a * 0.06;
+      this._hand.visible = true;
+      const reloadT = this._reloading ? 1 - this._reloadLeft / this.current.reloadTime : 0;
+      const reach = this._reloading ? Math.sin(Math.min(1, reloadT * 1.25) * Math.PI) : 0;
+      this._hand.position.y = -0.02 - a * 0.025 - reach * 0.11;
+      this._hand.position.z = 0.02 + reach * 0.12;
+      this._hand.rotation.x = reach * 0.45;
+    }
+    if (this._magazine) {
+      const reloadT = this._reloading ? 1 - this._reloadLeft / this.current.reloadTime : 0;
+      const remove = reloadT < 0.5 ? Math.sin(reloadT * Math.PI) : Math.sin((1 - reloadT) * Math.PI);
+      this._magazine.position.copy(this._magazineRest);
+      this._magazine.position.y -= Math.max(0, remove) * 0.14;
+      this._magazine.position.z += Math.max(0, remove) * 0.06;
+      this._magazine.rotation.copy(this._magazineRestRotation);
+      this._magazine.rotation.x += Math.max(0, remove) * 0.35;
     }
 
     // Reticle brightens in ADS (easier to "look through" the optic)
@@ -513,6 +624,30 @@ export class WeaponsSystem {
     ctx.events.emit('weapon:reload', { weapon: this.current.id, phase: 'start' });
   }
 
+  reset(_payload = {}, ctx) {
+    if (this._reloading) ctx?.events.emit('weapon:reload', { weapon: this.current.id, phase: 'cancel' });
+    this.current.ammo = this.current.magSize;
+    this.current.reserve = 90;
+    this.firing = false;
+    this.recoilPitch = 0;
+    this.recoilYaw = 0;
+    this.heat = 0;
+    this._cooldown = 0;
+    this._reloading = false;
+    this._reloadLeft = 0;
+    this._reloadHeld = false;
+    this._sprintRecovery = 0;
+    this.handlingState = 'hip';
+    this.ads = 0;
+    this._adsPrev = 0;
+    this._adsBlend = 0;
+    this._kickPos.set(0, 0, 0);
+    this._kickRot.set(0, 0, 0);
+    this._muzzleLife = 0;
+    if (this._muzzleFlash) this._muzzleFlash.visible = false;
+    if (ctx?.rng) this._rng = ctx.rng.fork('weapons');
+  }
+
   _fire(ctx, player) {
     const physics = ctx.get('physics');
     const w = this.current;
@@ -520,13 +655,14 @@ export class WeaponsSystem {
     player.getEyePosition(this._eye);
     player.getLookDir(this._look);
 
+    const seed = (this._rng.next() * 0x100000000) >>> 0;
     const kickP = w.recoilPitch * (1 + this.heat * 0.4);
     const kickY = w.recoilYaw * (this._rng.float() - 0.5) * 2 * (1 + this.heat * 0.3);
     this.recoilPitch += kickP;
     this.recoilYaw += kickY;
     this.heat = Math.min(1.5, this.heat + 0.12);
-    player.pitch += kickP * 0.85;
-    player.yaw += kickY * 0.85;
+    player.pitch += kickP;
+    player.yaw += kickY;
 
     this._kickPos.z += 0.035;
     this._kickPos.y += 0.012;
@@ -541,17 +677,14 @@ export class WeaponsSystem {
     }
 
     // ADS tightens spread
-    const ads = this._adsBlend;
+    const ads = this.ads;
     const spread = w.spread * (1 + this.heat * 1.5) * (1 - ads * 0.75);
     const jx = (this._rng.float() - 0.5) * 2 * spread;
     const jy = (this._rng.float() - 0.5) * 2 * spread;
-    let dx = this._look.x + jx;
-    let dy = this._look.y + jy;
-    let dz = this._look.z;
-    const inv = 1 / Math.hypot(dx, dy, dz);
-    dx *= inv;
-    dy *= inv;
-    dz *= inv;
+    computeSpreadDirection(this._look, jx / spread, jy / spread, spread, this._dir);
+    const dx = this._dir.x;
+    const dy = this._dir.y;
+    const dz = this._dir.z;
 
     const ox = this._eye.x;
     const oy = this._eye.y;
@@ -564,8 +697,8 @@ export class WeaponsSystem {
     this._dir.y = dy;
     this._dir.z = dz;
 
-    const seed = (this._rng.next() * 0x100000000) >>> 0;
     ctx.events.emit('weapon:fire', {
+      from: 'player',
       weapon: w.id,
       origin: this._origin,
       dir: this._dir,
@@ -619,7 +752,6 @@ export class WeaponsSystem {
         target: ud.actorId,
         amount,
         headshot,
-        killed: false,
         point: this._point,
         from: 'player',
       });
@@ -627,6 +759,7 @@ export class WeaponsSystem {
   }
 
   dispose() {
+    if (this._unsubReset) this._unsubReset();
     if (this._gunRoot) {
       this._gunRoot.parent?.remove(this._gunRoot);
       if (this._usingGltf && this._gun) disposeModelInstance(this._gun);
