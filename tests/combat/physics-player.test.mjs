@@ -3,6 +3,7 @@ import test from 'node:test';
 import * as THREE from 'three';
 import { PhysicsSystem, LAYER_STATIC } from '../../src/physics/PhysicsSystem.js';
 import { PlayerSystem, PLAYER_DIMENSIONS } from '../../src/player/PlayerSystem.js';
+import { WORLD_BOUNDARY } from '../../src/world/layout.js';
 
 async function physicsWithFloor() {
   const physics = new PhysicsSystem();
@@ -99,6 +100,70 @@ test('vault eye and reported hurtbox stay inside the swept tucked bounds', () =>
     const eye = player.getEyePosition(new THREE.Vector3());
     assert.ok(Math.abs((box.maxy - box.miny) - 1.2) < 1e-9);
     assert.ok(eye.y > box.miny && eye.y < box.maxy, `eye ${eye.y} escaped ${box.miny}..${box.maxy}`);
+  }
+});
+
+test('perimeter height rejects vaulting and contains a full running jump', async () => {
+  const physics = await physicsWithFloor();
+  physics.addBox({
+    minx: -10,
+    miny: 0,
+    minz: -2,
+    maxx: 10,
+    maxy: WORLD_BOUNDARY.height,
+    maxz: -1.2,
+    layers: LAYER_STATIC,
+  });
+  const player = new PlayerSystem();
+  player.position.set(0, PLAYER_DIMENSIONS.standHeight * 0.5, -0.6);
+  player.prevPosition.copy(player.position);
+  player.grounded = true;
+  player._forward.set(0, 0, -1);
+  assert.equal(player._tryStartVault({ events: { emit() {} } }, physics), false);
+
+  const ctx = {
+    input: {
+      keys: { KeyW: true, Space: true },
+      buttons: {},
+      mouse: { locked: true },
+      look: { dx: 0, dy: 0 },
+    },
+    events: { emit() {} },
+    session: { playing: true, retry: () => assert.fail('contained jump triggered recovery') },
+    get: (id) => id === 'physics'
+      ? physics
+      : { room: { minx: -10, maxx: 10, minz: -10, maxz: 10, floorY: 0 } },
+  };
+  let closest = Infinity;
+  for (let i = 0; i < 180; i++) {
+    player.fixedUpdate(1 / 120, ctx);
+    closest = Math.min(closest, player.position.z);
+  }
+  assert.ok(closest >= -1.2 + PLAYER_DIMENSIONS.radius - 1e-5, `jump crossed wall at z=${closest}`);
+  assert.equal(player.grounded, true);
+});
+
+test('falling below or leaving the lot retries the current checkpoint', () => {
+  const room = { minx: -60, maxx: 60, minz: -60, maxz: 60, floorY: 0 };
+  const escapes = [
+    [0, -5.01, 0],
+    [-60.01, 0.9, 0],
+    [60.01, 0.9, 0],
+    [0, 0.9, -60.01],
+    [0, 0.9, 60.01],
+  ];
+  for (const [x, y, z] of escapes) {
+    const player = new PlayerSystem();
+    player.position.set(x, y, z);
+    let retries = 0;
+    player.fixedUpdate(1 / 120, {
+      session: { playing: true, retry: () => { retries += 1; } },
+      get: (id) => {
+        assert.equal(id, 'world');
+        return { room };
+      },
+    });
+    assert.equal(retries, 1, `escape at ${x},${y},${z} did not restore checkpoint`);
   }
 });
 

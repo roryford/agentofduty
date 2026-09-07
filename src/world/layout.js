@@ -9,6 +9,14 @@
 export const WORLD_SIZE = 120;
 export const NAV_CELL_SIZE = 2;
 
+/** Continuous lot-edge barrier shared by world construction and traversal tests. */
+export const WORLD_BOUNDARY = Object.freeze({
+  thickness: 0.8,
+  height: 3.6,
+  baseHeight: 1.05,
+  postSpacing: 4,
+});
+
 export const WORLD_ENCOUNTERS = Object.freeze([
   Object.freeze({
     id: 'south-checkpoint',

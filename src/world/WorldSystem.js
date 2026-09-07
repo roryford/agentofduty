@@ -11,6 +11,7 @@ import {
   COVER_PROPS,
   isInPlayableRegion,
   NAV_CELL_SIZE,
+  WORLD_BOUNDARY,
   WORLD_COVER_POINTS,
   WORLD_ENCOUNTERS,
   WORLD_SIZE,
@@ -42,6 +43,7 @@ export class WorldSystem {
     this._matsOwned = [];
     this._texturesOwned = [];
     this._colliderIds = [];
+    this._boundaryColliderIds = [];
     this._boxCache = new Map();
     this._facadeWindows = [];
     this._physics = null;
@@ -91,6 +93,7 @@ export class WorldSystem {
 
     const palette = this._createPalette(materials);
     this._buildGround(root, physics, palette);
+    this._buildPerimeter(root, physics, palette);
     this._buildArchitecture(root, physics, palette);
 
     const [dumpsterResult, carResult] = await Promise.allSettled([
@@ -256,6 +259,79 @@ export class WorldSystem {
       mesh.scale.set(sx, sy, 1);
       root.add(mesh);
     }
+  }
+
+  _buildPerimeter(root, physics, p) {
+    const { minx, maxx, minz, maxz } = this.room;
+    const { thickness, height, baseHeight, postSpacing } = WORLD_BOUNDARY;
+    const inset = thickness * 0.5;
+    const width = maxx - minx;
+    const depth = maxz - minz;
+    const walls = [
+      { id: 'west', x: minx + inset, z: 0, w: thickness, d: depth },
+      { id: 'east', x: maxx - inset, z: 0, w: thickness, d: depth },
+      { id: 'north', x: 0, z: minz + inset, w: width, d: thickness },
+      { id: 'south', x: 0, z: maxz - inset, w: width, d: thickness },
+    ];
+
+    for (const wall of walls) {
+      const collider = this._box(
+        root,
+        physics,
+        wall.x,
+        height * 0.5,
+        wall.z,
+        wall.w,
+        height,
+        wall.d,
+        p.stone,
+        'concrete',
+        { visual: false, kind: 'perimeter' },
+      );
+      this._boundaryColliderIds.push(collider);
+
+      const base = new THREE.Mesh(this._sharedBox(wall.w, baseHeight, wall.d), p.stone);
+      base.name = `perimeter-base-${wall.id}`;
+      base.position.set(wall.x, baseHeight * 0.5, wall.z);
+      base.receiveShadow = true;
+      root.add(base);
+
+      for (const y of [1.55, 2.65, 3.45]) {
+        const rail = new THREE.Mesh(
+          this._sharedBox(
+            wall.w === thickness ? 0.1 : wall.w,
+            0.1,
+            wall.d === thickness ? 0.1 : wall.d,
+          ),
+          p.darkMetal,
+        );
+        rail.name = `perimeter-rail-${wall.id}`;
+        rail.position.set(wall.x, y, wall.z);
+        root.add(rail);
+      }
+    }
+
+    const postPositions = [];
+    for (let axis = minx + inset; axis <= maxx - inset + 1e-6; axis += postSpacing) {
+      postPositions.push([axis, minz + inset], [axis, maxz - inset]);
+    }
+    for (let axis = minz + inset; axis <= maxz - inset + 1e-6; axis += postSpacing) {
+      postPositions.push([minx + inset, axis], [maxx - inset, axis]);
+    }
+    const postHeight = height - baseHeight;
+    const posts = new THREE.InstancedMesh(
+      this._sharedBox(0.13, postHeight, 0.13),
+      p.darkMetal,
+      postPositions.length,
+    );
+    posts.name = 'perimeter-posts';
+    const matrix = new THREE.Matrix4();
+    for (let i = 0; i < postPositions.length; i++) {
+      const [x, z] = postPositions[i];
+      posts.setMatrixAt(i, matrix.makeTranslation(x, baseHeight + postHeight * 0.5, z));
+    }
+    posts.instanceMatrix.needsUpdate = true;
+    root.add(posts);
   }
 
   _buildArchitecture(root, physics, p) {
@@ -640,9 +716,10 @@ export class WorldSystem {
     const id = physics.addBox({
       minx: x - hx, miny: y - hy, minz: z - hz,
       maxx: x + hx, maxy: y + hy, maxz: z + hz,
-      surface, layers: LAYER_STATIC, userData: { kind: 'world' },
+      surface, layers: LAYER_STATIC, userData: { kind: opts.kind ?? 'world' },
     });
     this._colliderIds.push(id);
+    return id;
   }
 
   _buildNav(physics) {
@@ -842,6 +919,7 @@ export class WorldSystem {
     this._matsOwned.length = 0;
     this._texturesOwned.length = 0;
     this._colliderIds.length = 0;
+    this._boundaryColliderIds.length = 0;
     this._boxCache.clear();
     this._facadeWindows.length = 0;
     this._physics = null;

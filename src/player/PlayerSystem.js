@@ -22,6 +22,7 @@ const VAULT_DURATION = 0.34;
 const VAULT_ARC = 1.0;
 const VAULT_COLLISION_HEIGHT = 1.2;
 const VAULT_EYE_OFFSET = 0.5;
+const FALL_RECOVERY_DEPTH = 5;
 
 function smoothstep(t) {
   return t * t * (3 - 2 * t);
@@ -179,6 +180,7 @@ export class PlayerSystem {
   }
 
   fixedUpdate(h, ctx) {
+    if (this._recoverWorldEscape(ctx)) return;
     if (!this.alive) {
       this.prevPosition.copy(this.position);
       this.respawnIn = Math.max(0, ctx.session?.deathRemaining ?? 0);
@@ -279,6 +281,19 @@ export class PlayerSystem {
 
     this._updateHealth(h);
     this._stateDirty = true;
+  }
+
+  _recoverWorldEscape(ctx) {
+    const room = ctx.get('world').room;
+    const outside =
+      this.position.y < room.floorY - FALL_RECOVERY_DEPTH ||
+      this.position.x < room.minx ||
+      this.position.x > room.maxx ||
+      this.position.z < room.minz ||
+      this.position.z > room.maxz;
+    if (!outside || !ctx.session?.retry) return false;
+    ctx.session.retry();
+    return true;
   }
 
   _setCrouched(crouched, physics) {
