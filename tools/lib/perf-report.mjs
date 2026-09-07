@@ -31,3 +31,8 @@ export function assess(metrics, budget) {
   if (metrics.shaderCompilesAfterReady !== 0) failures.push(`post-ready compiles ${metrics.shaderCompilesAfterReady}`);
   return { cpu, raf, gpu, failures };
 }
+
+export function assertBoot(milliseconds, maximum = 8000) {
+  positive(milliseconds, 'Boot time');
+  if (milliseconds > maximum) throw new Error(`Local cold boot exceeded ${maximum}ms: ${milliseconds.toFixed(0)}`);
+}

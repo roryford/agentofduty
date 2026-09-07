@@ -48,9 +48,12 @@ try {
   await page.mouse.down(); await page.waitForTimeout(250); await page.mouse.up();
   const fired = await snapshot();
   assert.ok(fired.ammo < ready.ammo, 'Held trigger must spend ammunition');
-  await page.keyboard.press('KeyR'); await page.waitForTimeout(450); await shot('reload');
+  await page.keyboard.press('KeyR', { delay: 60 }); await page.waitForTimeout(450);
+  assert.equal(await page.locator('.weapon-status').textContent(), 'RELOADING', 'R must start reload');
+  await shot('reload');
   await page.waitForTimeout(2200);
   const reloaded = await snapshot();
+  assert.equal(reloaded.ammo, ready.ammo, 'Reload must refill magazine');
   assert.equal(reloaded.ammo + reloaded.reserve, fired.ammo + fired.reserve, 'Reload conserves ammunition');
   evidence.checks.push('deploy does not fire', 'real movement', 'held ADS', 'held automatic fire', 'reload conserves ammo');
   // Lose pointer lock while inputs are held; resume must not inherit either input.
@@ -73,7 +76,7 @@ try {
       await page.keyboard.down(key); await page.waitForTimeout(250); await page.keyboard.up(key);
     }
     await page.keyboard.down('KeyE'); await page.mouse.down(); await page.waitForTimeout(500);
-    await page.mouse.up(); await page.keyboard.up('KeyE'); await page.keyboard.press('KeyR');
+    await page.mouse.up(); await page.keyboard.up('KeyE'); await page.keyboard.press('KeyR', { delay: 60 });
     await page.waitForTimeout(500);
     const sample = await snapshot();
     assert.ok(sample.position.every(Number.isFinite), 'Position must remain finite');
