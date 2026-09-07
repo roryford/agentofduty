@@ -4,10 +4,15 @@ import assert from 'node:assert/strict';
 import { mkdir, writeFile } from 'node:fs/promises';
 import { chromium } from 'playwright';
 import { serve } from './lib/server.mjs';
+import { validateSoakSamples, validateSoakReport } from './lib/soak-report.mjs';
 
-const seconds = Number(process.argv[process.argv.indexOf('--seconds') + 1] || 0);
-if (process.argv.includes('--seconds') && (!Number.isFinite(seconds) || seconds < 0)) throw new Error('Invalid soak seconds');
-const soakSeconds = process.argv.includes('--seconds') ? seconds : 0;
+let soakSeconds = 0;
+const args = process.argv.slice(2);
+if (args.length) {
+  if (args[0] !== '--seconds' || args.length > 2) throw new Error('Unknown play arguments');
+  if (args.length !== 2 || args[1].trim() === '' || !Number.isFinite(Number(args[1])) || Number(args[1]) < 0) throw new Error('Invalid soak seconds');
+  soakSeconds = Number(args[1]);
+}
 const server = await serve(new URL('../dist/', import.meta.url).pathname);
 let browser;
 const errors = [];
@@ -85,6 +90,7 @@ try {
     assert.ok(sample.geometries <= resourceStart.geometries + 4 && sample.textures <= resourceStart.textures + 2, 'GPU resources must remain bounded');
     assert.equal(sample.programs, resourceStart.programs, 'No new shader programs after ready');
     evidence.samples.push(sample);
+    if (evidence.samples.length >= 2) validateSoakSamples(evidence.samples);
     if (sample.state === 'paused') {
       await page.getByRole('button', { name: 'RESUME' }).click();
     }
@@ -92,6 +98,7 @@ try {
   }
   evidence.soakSeconds = (Date.now() - start) / 1000;
   assert.deepEqual(errors, [], 'Browser must have no runtime errors');
+  if (soakSeconds > 0) validateSoakReport(evidence, soakSeconds);
   await writeFile(new URL('../captures/play-report.json', import.meta.url), JSON.stringify(evidence, null, 2) + '\n');
   console.log('PLAY PASS', JSON.stringify({ checks: evidence.checks, soakSeconds: evidence.soakSeconds, samples: evidence.samples.length }));
 } finally { await browser?.close(); await server.close(); }
