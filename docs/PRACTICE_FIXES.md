@@ -1,5 +1,8 @@
 # Aiming, containment and practice follow-up
 
+Historical verification record, merged with the upgrade in PR #1 on 2026-09-07.
+See [EVIDENCE.md](EVIDENCE.md) for current capture and gate instructions.
+
 Implemented locally on `codex/upgrade`, following approval to proceed as
 orchestrator. Runtime and executable verification revision:
 `18679d1210c95ea4fc1f3e2ee00f4bee9fe47833`.
@@ -44,5 +47,5 @@ The prior upgrade's ten-minute soak is historical evidence for that revision;
 this follow-up uses the full gate, focused boundary/aim regressions and fresh
 practice/mission input runs. No new ten-minute soak is claimed here.
 
-Work is committed in the isolated upgrade worktree. No push, PR, merge or
-public deployment was performed. Existing publishing approval remains pending.
+This snapshot was subsequently published and merged in PR #1 as part of
+`e687d7b`. No public deployment is recorded here.

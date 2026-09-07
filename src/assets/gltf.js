@@ -3,7 +3,7 @@ import * as THREE from 'three';
 
 /**
  * Shared GLTF loading for hybrid Blender hero meshes.
- * Textures/lights/audio stay procedural — only hero meshes ship as GLB.
+ * Hero GLBs embed their textures; the facade texture loads separately.
  */
 
 const loader = new GLTFLoader();

@@ -5,13 +5,14 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "vite build",
+    "build": "node tools/build.mjs",
     "preview": "vite preview --host 127.0.0.1 --port 4173",
     "assets": "blender --background --python-exit-code 1 --python tools/blender/export_hero_meshes.py",
     "capture": "node tools/capture.mjs",
     "diff": "node tools/diff.mjs",
     "perf": "node tools/perf.mjs",
-    "gate": "npm run test && npm run build && node tools/scenarios.mjs && node tools/practice.mjs && node tools/capture.mjs && node tools/perf.mjs",
+    "gate": "npm run test && npm run build && node tools/scenarios.mjs && node tools/practice.mjs && npm run visual && node tools/perf.mjs",
+    "visual": "node tools/capture.mjs && node tools/diff.mjs",
     "test": "node --test tests/**/*.test.mjs",
     "play": "node tools/play.mjs",
     "scenarios": "node tools/scenarios.mjs"

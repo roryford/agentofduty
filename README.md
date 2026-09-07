@@ -5,12 +5,16 @@ flank through Lantern Court, and secure extraction with one rifle and one squad 
 
 ![Night street gameplay](baselines/combat.png)
 
+Nightfall shipped to `main` in [PR #1](https://github.com/roryford/agentofduty/pull/1).
+The image above is a September staged regression capture. See
+[verification and visual evidence](docs/EVIDENCE.md) for provenance and current checks;
+[follow-ups](docs/FOLLOWUPS.md) tracks remaining human playtesting and polish.
+
 ## Quick start
 
 ```bash
 npm install
 npx playwright install chrome     # hardware Chrome for capture/perf/play tools
-npm run assets                    # optional: rebuild Blender hero meshes
 npm run dev
 ```
 
@@ -33,8 +37,8 @@ regression test. Rebuilding the shipped meshes remains optional. Hardware Chrome
 and GPU timer queries are required for the device performance gate.
 
 ```bash
-npm run gate                  # tests + build + scenarios + 14 captures + hardware GPU perf
-node tools/diff.mjs            # vs locked baselines/
+npm run gate                  # tests + build + scenarios + practice + fresh visual diff + GPU perf
+npm run visual                # fresh capture + diff (requires a current npm run build)
 npm run play -- --seconds 600  # real-input smoke and ten-minute stability soak
 node tools/route.mjs           # automated real-input mission completion
 ```
@@ -44,9 +48,11 @@ node tools/route.mjs           # automated real-input mission completion
 | File | Purpose |
 |------|---------|
 | [`AGENTS.md`](AGENTS.md) | Build/test, architecture, traps (agents) |
+| [`docs/EVIDENCE.md`](docs/EVIDENCE.md) | Current verification, capture provenance and baseline review |
+| [`docs/CLEANUP_REPORT.md`](docs/CLEANUP_REPORT.md) | September cleanup results and independent review |
 | [`docs/BRIEF.md`](docs/BRIEF.md) | Original product brief |
 | [`docs/LESSONS.md`](docs/LESSONS.md) | Lessons from the first full build session |
-| [`docs/UPGRADE_PLAN.md`](docs/UPGRADE_PLAN.md) | Upgrade scope, evidence and remaining acceptance items |
+| [`docs/UPGRADE_PLAN.md`](docs/UPGRADE_PLAN.md) | Implemented upgrade plan, with proposed tuning targets |
 | [`docs/UPGRADE_REPORT.md`](docs/UPGRADE_REPORT.md) | Local delivery evidence and limitations |
 | [`docs/PRACTICE_FIXES.md`](docs/PRACTICE_FIXES.md) | Aiming, boundary and practice follow-up |
 | [`docs/FOLLOWUPS.md`](docs/FOLLOWUPS.md) | Optional next steps |
@@ -54,7 +60,8 @@ node tools/route.mjs           # automated real-input mission completion
 ## Hybrid art
 
 Original hero meshes (rifle, articulated soldier, dumpster, car) are baked with
-Blender and the existing procedural/Imagine texture set under `public/models/`.
+Blender and the procedural/Imagine texture inputs in `art-source/`. Runtime GLBs
+and the separately loaded facade texture live under `public/models/`.
 The soldier uses named limb pivots with runtime pose animation; these are not
 motion-captured skeletal clips. Missing models fall back to procedural meshes.
 Runtime dependency remains **three only**.
@@ -62,6 +69,9 @@ Runtime dependency remains **three only**.
 ```bash
 npm run assets   # tools/blender/export_hero_meshes.py → public/models/*.glb
 ```
+
+Production builds are minified. Use `AOD_DEBUG_BUILD=1 npm run build` to include
+source maps for debugging. Source artwork is retained but excluded from `dist/`.
 
 ## Stack
 

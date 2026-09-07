@@ -15,6 +15,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { PNG } from 'pngjs';
 import pixelmatch from 'pixelmatch';
+import { currentBuild, validateManifest, sha256 } from './lib/evidence.mjs';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(__dirname, '..');
@@ -41,8 +42,9 @@ function parseArgs(argv) {
         'Usage: node tools/diff.mjs [--capture dir] [--baseline dir] [--threshold frac] [--aa t]',
       );
       process.exit(0);
-    }
+    } else throw new Error(`Unknown argument ${a}`);
   }
+  for (const key of ['threshold', 'aa']) if (!Number.isFinite(args[key]) || args[key] < 0 || args[key] > 1) throw new Error(`Invalid ${key}`);
   return args;
 }
 
@@ -53,6 +55,17 @@ async function loadPng(filePath) {
 
 async function main() {
   const args = parseArgs(process.argv);
+  const shots = JSON.parse(await readFile(path.join(ROOT, 'tools/shots.json'), 'utf8'));
+  const manifest = JSON.parse(await readFile(path.join(args.capture, 'manifest.json'), 'utf8'));
+  validateManifest(manifest, shots);
+  const build = await currentBuild();
+  if (manifest.provenance.sourceDigest !== build.sourceDigest || manifest.provenance.buildDigest !== build.buildDigest) throw new Error('Stale capture: source or build changed; run npm run visual');
+  const baseline = JSON.parse(await readFile(path.join(args.baseline, 'manifest.json'), 'utf8'));
+  if (baseline.seed !== manifest.seed || baseline.width !== manifest.width || baseline.height !== manifest.height || baseline.shots?.length !== shots.length) throw new Error('Baseline capture settings or shot set differ');
+  for (const shot of shots) {
+    const reference = baseline.shots.find(s => s.name === shot.name);
+    if (!reference || Object.keys(shot).some(key => reference[key] !== shot[key])) throw new Error(`Baseline definition mismatch: ${shot.name}`);
+  }
 
   try {
     await access(args.capture);
@@ -71,8 +84,9 @@ async function main() {
     process.exit(1);
   }
 
-  const captureFiles = (await readdir(args.capture)).filter((f) => f.endsWith('.png'));
+  const captureFiles = manifest.shots.map(s => s.name + '.png');
   const baselineFiles = (await readdir(args.baseline)).filter((f) => f.endsWith('.png'));
+  if (baselineFiles.length !== shots.length || baselineFiles.some(name => !captureFiles.includes(name))) throw new Error('Baseline PNG set differs from declared shots');
 
   if (baselineFiles.length === 0) {
     console.error('No baseline PNGs found.');
@@ -86,7 +100,9 @@ async function main() {
 
   for (const name of baselineFiles.sort()) {
     const basePath = path.join(args.baseline, name);
-    const capPath = path.join(args.capture, name);
+    const shot = manifest.shots.find(s => s.name + '.png' === name);
+    const capPath = path.join(args.capture, shot.file);
+    if (sha256(await readFile(capPath)) !== shot.sha256) throw new Error(`Capture hash mismatch: ${name}`);
 
     if (!captureFiles.includes(name)) {
       console.error(`[diff] FAIL ${name}: missing from captures`);

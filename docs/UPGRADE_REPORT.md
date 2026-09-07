@@ -4,9 +4,10 @@ This records the original upgrade. See [PRACTICE_FIXES.md](PRACTICE_FIXES.md)
 for the subsequent aiming, containment and practice changes. Generated capture
 reports contain the latest run and may supersede the historical values below.
 
-Prepared on `codex/upgrade` in the isolated `agentofduty-codex-upgrade` worktree.
-No push, PR, merge or deployment has occurred. Automatic approval review rejected
-publishing to `https://github.com/roryford/agentofduty` pending explicit authorization.
+Originally prepared on `codex/upgrade`. The upgrade and subsequent practice fixes
+were published and squash-merged in [PR #1](https://github.com/roryford/agentofduty/pull/1)
+on 2026-09-07 as `e687d7b`. The values below retain their original test context;
+current verification instructions are in [EVIDENCE.md](EVIDENCE.md).
 
 ## Playable changes
 

@@ -5,8 +5,8 @@ export default defineConfig({
   build: {
     target: 'esnext',
     outDir: 'dist',
-    sourcemap: true,
-    minify: false,
+    sourcemap: process.env.AOD_DEBUG_BUILD === '1',
+    minify: 'esbuild',
   },
   server: {
     host: '127.0.0.1',

@@ -1,9 +1,10 @@
 # Agent of Duty — full upgrade plan
 
-Status: prepared locally on codex/upgrade; full gate and stability verification passed.
-Final revision review is tracked in the session delivery.
-Publishing is pending explicit GitHub approval after automatic approval review rejected the push.
-Assessment: 2026-09-07, current local main checkout.
+Status: implemented and merged in PR #1 on 2026-09-07 (main: e687d7b).
+This preserves the approved plan and its proposed tuning targets; implementation
+evidence and limitations are in UPGRADE_REPORT.md and PRACTICE_FIXES.md.
+Current verification instructions are in EVIDENCE.md; remaining quality work is
+in FOLLOWUPS.md. Original assessment: 2026-09-07 against the July prototype.
 
 ## 1. Product target
 
@@ -114,10 +115,9 @@ deliver clips and attachment contracts; only the combat owner wires them into
 player/weapon/AI source. Orchestrator alone approves new event rows. Add any
 new mission/content directories to AGENTS ownership before assigning them.
 
-Worker routing update: Rory explicitly instructed “don't use Claude” after
-Claude OAuth prevented dispatch. Implementation uses named Codex-native
-workers with explicit models; no Claude processes or nested delegation.
-Independent review is dispatched separately from implementation.
+Follow the Agent routing section of AGENTS.md: Codex owns orchestration,
+implementation and independent review. This plan does not require Claude Code
+or Claude authentication.
 
 For implementation, use Conventional Commits and an early draft PR per
 milestone once the first full local gate passes. Local checkpoint commit may
