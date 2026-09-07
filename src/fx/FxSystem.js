@@ -7,7 +7,7 @@ import * as THREE from 'three';
  * Listens: weapon:fire, bullet:impact, bullet:tracer, player:land, actor:death
  */
 
-const MAX_DECALS = 48;
+const MAX_DECALS = 24;
 const MAX_PARTICLES = 64;
 const MAX_TRACERS = 16;
 
@@ -58,7 +58,7 @@ export class FxSystem {
     ctx.scene.add(this._root);
 
     // Impact marks: small dark discs (not full planes — avoids camera-facing cards)
-    const decalGeom = new THREE.CircleGeometry(0.09, 10);
+    const decalGeom = new THREE.CircleGeometry(0.028, 10);
     this._geoms.push(decalGeom);
 
     this._decals = [];
@@ -91,9 +91,18 @@ export class FxSystem {
     this._particlePos = positions;
     this._particleVel = new Float32Array(MAX_PARTICLES * 3);
 
+    const spritePixels = new Uint8Array(16 * 16 * 4);
+    for (let y=0;y<16;y++) for (let x=0;x<16;x++) {
+      const i=(y*16+x)*4, radius=Math.hypot((x-7.5)/7.5,(y-7.5)/7.5);
+      spritePixels[i]=spritePixels[i+1]=spritePixels[i+2]=255;
+      spritePixels[i+3]=Math.round(Math.max(0,1-radius)**2*255);
+    }
+    this._particleSprite=new THREE.DataTexture(spritePixels,16,16,THREE.RGBAFormat);
+    this._particleSprite.needsUpdate=true;
     const pMat = new THREE.PointsMaterial({
+      map: this._particleSprite,
       color: 0xffcc88,
-      size: 0.05,
+      size: 0.035,
       transparent: true,
       opacity: 0.9,
       depthWrite: false,
@@ -188,8 +197,8 @@ export class FxSystem {
     ) {
       return;
     }
-    // Particle bursts only — projected discs were reading as large floating cards
-    // under wet-specular lighting. Decal pool kept for a later contact-shadow pass.
+    // Small marks are aligned to the actual static hit normal, never camera-facing.
+    if (!['flesh','water','foliage','fabric'].includes(surface)) this._spawnDecal(point,normal,surface);
     const color = surface === 'flesh' ? 0xaa2222 : surface === 'metal' ? 0xccccaa : 0x888870;
     this._burst(point.x, point.y, point.z, color, surface === 'flesh' ? 12 : 5);
     if (surface === 'flesh') {
@@ -344,5 +353,6 @@ export class FxSystem {
     if (this._root) this._root.parent?.remove(this._root);
     for (const g of this._geoms) g.dispose();
     for (const m of this._mats) m.dispose();
+    this._particleSprite?.dispose();
   }
 }
