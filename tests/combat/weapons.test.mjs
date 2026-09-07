@@ -110,6 +110,28 @@ test('reload conserves ammunition and reset cancels an in-flight reload', () => 
   assert.equal(weapon.current.ammo + weapon.current.reserve, 120);
 });
 
+test('practice reload keeps a finite magazine and unlimited reserve', () => {
+  const { weapon, ctx } = weaponHarness();
+  ctx.input.buttons[0] = false;
+  ctx.session.mode = 'practice';
+  weapon.reset({ practice: true }, { ...ctx, rng: { fork: () => deterministicRng() } });
+  assert.equal(weapon.current.ammo, 30);
+  assert.equal(weapon.current.reserve, Infinity);
+
+  weapon.current.ammo = 3;
+  weapon._startReload(ctx);
+  for (let i = 0; i < 193; i++) weapon.fixedUpdate(1 / 120, ctx);
+  assert.equal(weapon.current.ammo, 30);
+  assert.equal(weapon.current.reserve, Infinity);
+
+  weapon.reset({ practice: false }, {
+    ...ctx,
+    session: { playing: true, mode: 'mission' },
+    rng: { fork: () => deterministicRng() },
+  });
+  assert.equal(weapon.current.reserve, 90);
+});
+
 test('sprint-to-fire delay blocks shots until recovery elapses', () => {
   const { weapon, player, ctx, events } = weaponHarness();
   player.sprinting = true;

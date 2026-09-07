@@ -24,6 +24,18 @@ const HIP_ROT = { x: 0.05, y: 0.1, z: 0.03 };
 // Align holographic optic with screen center when ADS
 const ADS_POS = { x: 0.0, y: -0.1, z: -0.28 };
 const ADS_ROT = { x: 0.0, y: 0.0, z: 0.0 };
+export const AIM_RETICLE_DEPTH = -0.308;
+
+export function createAimReticleAnchor(viewCamera, reticle) {
+  const anchor = new THREE.Group();
+  anchor.name = 'aim_reticle_anchor';
+  anchor.position.set(0, 0, AIM_RETICLE_DEPTH);
+  anchor.frustumCulled = false;
+  anchor.visible = false;
+  anchor.add(reticle);
+  viewCamera.add(anchor);
+  return anchor;
+}
 const SPRINT_POS = { x: 0.3, y: -0.34, z: -0.42 };
 const SPRINT_ROT = { x: 0.42, y: 0.15, z: 0.18 };
 const ADS_SECONDS = 0.2;
@@ -136,6 +148,7 @@ export class WeaponsSystem {
     this._hand = null;
     this._optic = null;
     this._reticle = null;
+    this._reticleAnchor = null;
     this._gunBase = new THREE.Vector3(HIP_POS.x, HIP_POS.y, HIP_POS.z);
     this._posePos = new THREE.Vector3(HIP_POS.x, HIP_POS.y, HIP_POS.z);
     this._poseRot = new THREE.Euler(HIP_ROT.x, HIP_ROT.y, HIP_ROT.z, 'YXZ');
@@ -153,6 +166,7 @@ export class WeaponsSystem {
     this._magazine = null;
     this._magazineRest = new THREE.Vector3();
     this._magazineRestRotation = new THREE.Euler();
+    this._practice = false;
   }
 
   async init(ctx) {
@@ -192,6 +206,7 @@ export class WeaponsSystem {
 
     this._buildHand(mount);
     this._buildOptic(mount);
+    this._reticleAnchor = createAimReticleAnchor(ctx.viewCamera, this._reticle);
     this._magazine = this._gun?.getObjectByName?.('magazine') ?? null;
     if (!this._magazine) {
       const magMaterial = new THREE.MeshStandardMaterial({ color: 0x24282d, metalness: 0.55, roughness: 0.5 });
@@ -399,10 +414,12 @@ export class WeaponsSystem {
     const glassGeom = new THREE.PlaneGeometry(0.028, 0.028);
     this._geoms.push(glassGeom);
     const glassFront = new THREE.Mesh(glassGeom, glassMat);
+    glassFront.name = 'optic_glass_front';
     glassFront.position.set(0, 0.1, -0.052);
     glassFront.frustumCulled = false;
     optic.add(glassFront);
     const glassRear = new THREE.Mesh(glassGeom, glassMat);
+    glassRear.name = 'optic_glass_rear';
     glassRear.position.set(0, 0.1, -0.002);
     glassRear.frustumCulled = false;
     optic.add(glassRear);
@@ -426,9 +443,10 @@ export class WeaponsSystem {
     dot.position.set(0, 0, 0.001);
     dot.frustumCulled = false;
     reticle.add(dot);
-    // Sit reticle mid-window, facing camera (−Z)
-    reticle.position.set(0, 0.1, -0.028);
-    optic.add(reticle);
+    // The luminous marker is attached directly to the view camera after the
+    // housing is built. It remains on the hitscan axis while the decorative
+    // rifle pose bobs, recoils, or lowers near a wall.
+    reticle.position.set(0, 0, 0);
     this._reticle = reticle;
 
     // Mount sits on receiver top (camera-local, barrel −Z)
@@ -470,9 +488,9 @@ export class WeaponsSystem {
       this._reloadLeft -= h;
       if (this._reloadLeft <= 0) {
         const need = this.current.magSize - this.current.ammo;
-        const take = need < this.current.reserve ? need : this.current.reserve;
+        const take = this._practice ? need : need < this.current.reserve ? need : this.current.reserve;
         this.current.ammo += take;
-        this.current.reserve -= take;
+        if (!this._practice) this.current.reserve -= take;
         this._reloading = false;
         this._reloadLeft = 0;
         ctx.events.emit('weapon:reload', { weapon: this.current.id, phase: 'end' });
@@ -541,7 +559,10 @@ export class WeaponsSystem {
 
     // Hide gun while dead
     this._gunRoot.visible = player.alive;
-    if (!player.alive) return;
+    if (!player.alive) {
+      if (this._reticleAnchor) this._reticleAnchor.visible = false;
+      return;
+    }
 
     // Presentation interpolates the fixed-tick handling state.
     const alpha = ctx.time.alpha ?? 1;
@@ -584,7 +605,7 @@ export class WeaponsSystem {
       this._bob *= 0.9;
     }
     const motionScale = ctx.session?.settings?.reducedMotion ? 0.25 : 1;
-    const bobScale = (1 - a * 0.85) * Math.min(1, spd / 5) * motionScale;
+    const bobScale = (1 - a) * Math.min(1, spd / 5) * motionScale;
     const bobY = Math.sin(this._bob) * 0.012 * bobScale;
     const bobX = Math.cos(this._bob * 0.5) * 0.008 * bobScale;
 
@@ -608,11 +629,12 @@ export class WeaponsSystem {
     const wall = physics.raycast(this._eye.x, this._eye.y, this._eye.z, this._look.x, this._look.y, this._look.z, 0.75, LAYER_STATIC);
     if (wall) wallLower = (1 - wall.distance / 0.75) * 0.16;
 
-    // ADS: less kick translation
-    const kickScale = (1 - a * 0.55) * motionScale;
+    // At full ADS the optic housing stays centered around the camera-anchored
+    // marker; recoil still moves the world camera and therefore the aim ray.
+    const kickScale = (1 - a) * motionScale;
     this._gunRoot.position.set(
       this._posePos.x + bobX + this._kickPos.x * kickScale + reloadRight,
-      this._posePos.y + bobY + this._kickPos.y * kickScale + reloadDip - wallLower,
+      this._posePos.y + bobY + this._kickPos.y * kickScale + reloadDip - wallLower * (1 - a),
       this._posePos.z + this._kickPos.z * kickScale,
     );
     this._gunRoot.rotation.set(
@@ -642,7 +664,7 @@ export class WeaponsSystem {
 
     // Reticle brightens in ADS (easier to "look through" the optic)
     if (this._reticle) {
-      this._reticle.visible = true;
+      this._reticleAnchor.visible = a >= 0.98 && !this._reloading && sprintBlend < 0.01;
       const scale = 0.85 + a * 0.35;
       this._reticle.scale.setScalar(scale);
       this._reticle.traverse((o) => {
@@ -660,10 +682,11 @@ export class WeaponsSystem {
     ctx.events.emit('weapon:reload', { weapon: this.current.id, phase: 'start' });
   }
 
-  reset(_payload = {}, ctx) {
+  reset(payload = {}, ctx) {
     if (this._reloading) ctx?.events.emit('weapon:reload', { weapon: this.current.id, phase: 'cancel' });
     this.current.ammo = this.current.magSize;
-    this.current.reserve = 90;
+    this._practice = payload.practice === true || ctx?.session?.mode === 'practice';
+    this.current.reserve = this._practice ? Infinity : 90;
     this.firing = false;
     this.recoilPitch = 0;
     this.recoilYaw = 0;
@@ -677,6 +700,7 @@ export class WeaponsSystem {
     this.ads = 0;
     this._adsPrev = 0;
     this._adsBlend = 0;
+    if (this._reticleAnchor) this._reticleAnchor.visible = false;
     this._kickPos.set(0, 0, 0);
     this._kickRot.set(0, 0, 0);
     this._muzzleLife = 0;
@@ -796,6 +820,8 @@ export class WeaponsSystem {
 
   dispose() {
     if (this._unsubReset) this._unsubReset();
+    this._reticleAnchor?.parent?.remove(this._reticleAnchor);
+    this._reticleAnchor = null;
     if (this._gunRoot) {
       this._gunRoot.parent?.remove(this._gunRoot);
       if (this._usingGltf && this._gun) disposeModelInstance(this._gun);
