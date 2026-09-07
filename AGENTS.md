@@ -15,7 +15,7 @@ One weapon, one enemy archetype. Cohesion over feature count.
 
 ```bash
 npm install
-npx playwright install chromium   # once, for capture/perf tools
+npx playwright install chrome     # once, hardware Chrome for capture/perf/play tools
 
 npm run dev          # local play
 npm run build        # vite → dist/
@@ -88,9 +88,13 @@ Rules:
 
 `weapon:fire` · `weapon:reload` · `weapon:shell` · `bullet:impact` · `bullet:tracer` ·
 `damage:dealt` · `damage:taken` · `actor:death` · `player:land` · `player:footstep` ·
-`player:state` · `explosion` · `resize`
+`player:state` · `explosion` · `resize` · `combat:hit` · `session:state` ·
+`session:reset` · `mission:objective`
 
-- `damage:dealt` is handled by the **target**, never the attacker.
+- `damage:dealt` is an immutable request handled by the **target**, never the attacker.
+- The target emits `combat:hit` and actor-qualified `damage:taken`; see BRIEF for payloads.
+- `ctx.session` owns ready/play/pause/death/complete and checkpoint reset.
+- Named `ctx.rng.fork(name)` streams isolate gameplay from decorative randomness.
 - New event ⇒ new registry row in the same commit (update BRIEF if needed).
 
 ### Surfaces

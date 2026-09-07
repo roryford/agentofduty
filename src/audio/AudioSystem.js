@@ -1,4 +1,4 @@
-import { panFor, audibleState } from './spatial.js';
+import { panFor, audibleState, segmentDistance } from './spatial.js';
 /**
  * Procedural WebAudio SFX — no external samples.
  *
@@ -32,6 +32,8 @@ export class AudioSystem {
     this._lastEnemyFireT = 0;
     this._noiseCache = new Map();
     this._listenerYaw = 0;
+    this._lastNearMiss = -Infinity;
+    this._pulseLeft = 0;
     this._listenerPos = { x: 0, y: 1.6, z: 0 };
   }
 
@@ -53,8 +55,9 @@ export class AudioSystem {
     }
 
     this._unsubs.push(
-      ctx.events.on('session:reset', () => { this._lastEnemyFireT = -Infinity; this._rng = ctx.rng.fork('audio'); }),
+      ctx.events.on('session:reset', () => { this._lastEnemyFireT = -Infinity; this._lastNearMiss = -Infinity; this._pulseLeft = 0; this._rng = ctx.rng.fork('audio'); }),
       ctx.events.on('weapon:fire', (p) => this._gunshot(ctx, p)),
+      ctx.events.on('bullet:tracer', p => this._nearMiss(ctx, p)),
       ctx.events.on('bullet:impact', (p) => this._impact(ctx, p)),
       ctx.events.on('player:footstep', (p) => this._footstep(ctx, p)),
       ctx.events.on('player:land', (p) => this._land(p)),
@@ -67,6 +70,38 @@ export class AudioSystem {
         if (p?.phase === 'end') this._click(220, 0.06, 0.05);
       }),
     );
+  }
+
+  fixedUpdate(h, ctx) {
+    if (!ctx.session.playing || !this._ctx) return;
+    this._pulseLeft -= h;
+    if (this._pulseLeft > 0) return;
+    const mission = ctx.peek('mission');
+    const active = mission?.alive > 0;
+    this._pulseLeft = active ? .75 : 1.5;
+    // Restrained score pulse: encounter pressure and quiet movement use distinct tempos.
+    const ac = this._ctx, t = ac.currentTime;
+    const oscillator = ac.createOscillator(), gain = ac.createGain();
+    oscillator.type = 'sine';
+    oscillator.frequency.setValueAtTime(active ? 55 : 41.2, t);
+    gain.gain.setValueAtTime(0, t);
+    gain.gain.linearRampToValueAtTime(active ? .022 : .012, t + .025);
+    gain.gain.exponentialRampToValueAtTime(.0001, t + .55);
+    oscillator.connect(gain); gain.connect(this._master);
+    oscillator.onended = () => { oscillator.disconnect(); gain.disconnect(); };
+    oscillator.start(t); oscillator.stop(t + .6);
+  }
+
+  _nearMiss(ctx, p) {
+    if (!p?.from || !p?.to || !this._ctx || !ctx.session.playing) return;
+    const originDistance = Math.hypot(p.from.x-this._listenerPos.x,p.from.y-this._listenerPos.y,p.from.z-this._listenerPos.z);
+    if (originDistance < 2 || segmentDistance(this._listenerPos,p.from,p.to) > 1.25 || ctx.time.elapsed-this._lastNearMiss < .18) return;
+    this._lastNearMiss = ctx.time.elapsed;
+    const ac=this._ctx,t=ac.currentTime,source=ac.createBufferSource(),filter=ac.createBiquadFilter(),gain=ac.createGain();
+    source.buffer=this._noise(.06,false); filter.type='highpass'; filter.frequency.value=2800;
+    gain.gain.setValueAtTime(.055,t); gain.gain.exponentialRampToValueAtTime(.001,t+.06);
+    source.connect(filter); filter.connect(gain); const output=this._spatial(gain,p.from);
+    source.onended=()=>{source.disconnect();filter.disconnect();gain.disconnect();output.disconnect();}; source.start(t);
   }
 
   lateUpdate(_dt, ctx) {
@@ -186,7 +221,7 @@ export class AudioSystem {
     src.connect(bp);
     bp.connect(g);
     const output = this._spatial(g, p?.origin || p?.point);
-    src.onended = () => { src.disconnect(); g.disconnect(); output.disconnect(); };
+    src.onended = () => { src.disconnect(); bp.disconnect(); g.disconnect(); output.disconnect(); };
     src.start(t0);
 
     if (!enemy) {
@@ -318,7 +353,7 @@ export class AudioSystem {
     src.connect(f);
     f.connect(g);
     const output = this._spatial(g, p?.origin || p?.point);
-    src.onended = () => { src.disconnect(); g.disconnect(); output.disconnect(); };
+    src.onended = () => { src.disconnect(); f.disconnect(); g.disconnect(); output.disconnect(); };
     src.start(t0);
   }
 

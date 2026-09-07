@@ -6,3 +6,11 @@ export function panFor(point, listener, yaw) {
   return distance < .001 ? 0 : Math.max(-1,Math.min(1,(dx*Math.cos(yaw)-dz*Math.sin(yaw))/distance));
 }
 export function audibleState(state) { return state === 'playing' || state === 'dead'; }
+
+/** Distance to the actual travelled shot segment, not its infinite aim ray. */
+export function segmentDistance(point, from, to) {
+  const x=to.x-from.x,y=to.y-from.y,z=to.z-from.z;
+  const lengthSquared=x*x+y*y+z*z;
+  const t=lengthSquared ? Math.max(0,Math.min(1,((point.x-from.x)*x+(point.y-from.y)*y+(point.z-from.z)*z)/lengthSquared)) : 0;
+  return Math.hypot(point.x-from.x-t*x,point.y-from.y-t*y,point.z-from.z-t*z);
+}

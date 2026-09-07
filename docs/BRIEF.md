@@ -2,6 +2,24 @@
 
 Preserved for future reference. This is the product/engineering brief the project was built against.
 
+## Approved upgrade amendment — September 2026
+
+The approved [upgrade plan](UPGRADE_PLAN.md) expands the street into three linked
+encounters: checkpoint, courtyard flank, and extraction hold. Keep one rifle,
+one articulated soldier archetype and Three.js as the only runtime dependency.
+Original locally authored Blender GLBs are permitted alongside runtime procedural
+fallbacks. The orchestrator owns core, composition, mission, UI/audio/FX and tools;
+combat and art workers own their explicitly assigned directories in isolated
+worktrees. This supersedes the original core read-only and runtime-only asset
+restrictions below. `npm run gate` now includes behavioral tests and real hardware
+GPU measurement; `node tools/play.mjs --seconds 600` adds the real-input soak.
+
+Session states are ready, playing, paused, dead and complete. Only playing/dead
+advance the simulation; death timers pause on focus loss. Checkpoint reset restores
+player, weapon, enemies and temporary effects together. `ctx.session.resume()`
+restores an interrupted death; it must not revive a dead player directly.
+
+
 ---
 
 Build a browser FPS on Three.js r180 + Vite (WebGL2). Zero external assets: every
@@ -63,14 +81,28 @@ Rules:
 
 Cross-subsystem coupling goes through ctx.events only. Canonical registry (a new
 event requires a new row in the same commit):
-  weapon:fire {weapon, origin, dir, seed} | weapon:reload {weapon, phase} |
-  weapon:shell {position, velocity} | bullet:impact {point, normal, surface,
-  incident, damage} | bullet:tracer {from, to, speed} | damage:dealt {target,
-  amount, headshot, killed, point} | damage:taken {amount, from, health} |
-  actor:death {actor, point, impulse} | player:land {velocity, surface} |
-  player:footstep {position, surface, running} | player:state {stance, sprinting,
-  sliding, ads} | explosion {position, radius, damage} | resize {width, height}
-damage:dealt is handled by the TARGET, never the attacker; emitters filter self.
+| Event | Payload |
+|---|---|
+| weapon:fire | `{weapon, from, origin, dir, seed}`; from is actor id |
+| weapon:reload | `{weapon, phase}`; phase start/end |
+| weapon:shell | `{position, velocity}` |
+| bullet:impact | `{point, normal, surface, incident, damage}` |
+| bullet:tracer | `{from, to, speed}`; from/to are positions |
+| damage:dealt | `{target, from, amount, headshot, point}`; immutable request |
+| damage:taken | `{target, from, amount, health, headshot, point}`; resolved by target |
+| combat:hit | `{target, from, amount, health, headshot, killed, point}`; resolved by target |
+| actor:death | `{actor, point, impulse}` |
+| player:land | `{velocity, surface}` |
+| player:footstep | `{position, surface, running}` |
+| player:state | `{stance, sprinting, sliding, ads}` |
+| explosion | `{position, radius, damage}` |
+| resize | `{width, height}` |
+| session:state | `{state, previous}` |
+| session:reset | `{full, spawn:{x,y,z,yaw}, enemySpawns:[{x,z,role}], encounter}` |
+| mission:objective | `{index, name}` |
+
+Damage is resolved by the target, never by the attacker. UI/audio observe resolved
+notifications, never infer the target from a health value or mutate requests.
 
 Surface tags stamped by physics on every collider, driving fx/audio/decals:
 concrete, metal, wood, dirt, sand, glass, water, foliage, fabric, flesh, rubber,

@@ -1,4 +1,5 @@
 import './hud.css';
+import { Vector3 } from 'three';
 
 /** HUD observes resolved combat events; menu actions go through session lifecycle. */
 export class UiSystem {
@@ -10,6 +11,7 @@ export class UiSystem {
     this.hurt = 0;
     this.kill = 0;
     this.direction = 0;
+    this._waypoint = new Vector3();
   }
   async init(ctx) {
     const root = document.createElement('div');
@@ -18,7 +20,7 @@ export class UiSystem {
       <div class="aod-vignette"></div><div class="damage-wash"></div>
       <header class="mission-strip"><span class="signal-dot"></span><span>OPERATION / NIGHTFALL</span><span class="mission-location"></span></header>
       <div class="objective-panel"><small>CURRENT OBJECTIVE</small><strong class="objective-text"></strong><span class="objective-distance"></span></div>
-      <div class="aim-cross"><i></i><i></i><i></i><i></i></div><div class="hit-marker">×</div><div class="damage-bearing">▴</div>
+      <div class="rally-marker"><i>◇</i><span>RALLY</span></div><div class="aim-cross"><i></i><i></i><i></i><i></i></div><div class="hit-marker">×</div><div class="damage-bearing">▴</div>
       <div class="kill-confirm"><span>HOSTILE DOWN</span><b>+100</b></div>
       <footer class="combat-hud"><div class="health-panel"><small>VITALS</small><strong class="health-value"></strong><div class="health-track"><i></i></div></div>
       <span class="control-hint">WASD MOVE · SHIFT SPRINT · C CROUCH · SPACE JUMP / VAULT · E AIM</span>
@@ -40,7 +42,7 @@ export class UiSystem {
     document.body.append(root);
     this.root = root;
     const q = (selector) => root.querySelector(selector);
-    this.nodes = Object.fromEntries(['mission-location','objective-text','objective-distance','health-value','ammo-value','reserve-value','weapon-status','session-menu','menu-description','menu-message','death-countdown','death-screen','deploy-button','retry-button','kill-confirm','hit-marker','damage-wash','damage-bearing','aim-cross','combat-hud','objective-panel','mission-brief'].map(n => [n, q('.'+n)]));
+    this.nodes = Object.fromEntries(['rally-marker','mission-location','objective-text','objective-distance','health-value','ammo-value','reserve-value','weapon-status','session-menu','menu-description','menu-message','death-countdown','death-screen','deploy-button','retry-button','kill-confirm','hit-marker','damage-wash','damage-bearing','aim-cross','combat-hud','objective-panel','mission-brief'].map(n => [n, q('.'+n)]));
     this.healthBar = q('.health-track i');
     this.heading = q('h1');
     this.nodes['deploy-button'].addEventListener('click', async () => {
@@ -95,6 +97,14 @@ export class UiSystem {
     n['mission-location'].textContent = `${String(mission.index+1).padStart(2,'0')} / ${mission.current.name.toUpperCase()}`;
     n['objective-text'].textContent = mission.objective;
     const exit = mission.current.exit;
+    this._waypoint.set(exit.x, 1.8, exit.z).project(ctx.camera);
+    const marker = n['rally-marker'];
+    marker.hidden = !s.playing || mission.alive > 0;
+    const behind = this._waypoint.z > 1;
+    const side = behind ? -Math.sign(this._waypoint.x || 1) : this._waypoint.x;
+    marker.style.left = `${50 + Math.max(-.86, Math.min(.86, side)) * 50}%`;
+    marker.style.top = `${50 - Math.max(-.62, Math.min(.62, behind ? 0 : this._waypoint.y)) * 50}%`;
+    marker.classList.toggle('offscreen', behind || Math.abs(this._waypoint.x) > .86);
     n['objective-distance'].textContent = `${Math.ceil(Math.hypot(p.position.x-exit.x,p.position.z-exit.z))} m TO RALLY POINT`;
     n['menu-message'].textContent = s.message;
     n['retry-button'].hidden = s.state === 'ready';
