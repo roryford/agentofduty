@@ -18,7 +18,9 @@ npm run dev
 Space jump/vault · LMB fire · RMB/E aim · R reload · Escape pause.
 The briefing and pause freeze combat; death restores the current checkpoint after
 2.5 seconds. Clear each area, follow the rally marker, then hold extraction for
-eight seconds. Settings include look/aim sensitivity, FOV, inverted look,
+eight seconds. Choose **Explore / no enemies** in the briefing or pause menu to
+test freely with unlimited reserve ammo, a starting-area selector and Reset Position.
+Settings include look/aim sensitivity, FOV, inverted look,
 reduced camera motion, and volume.
 
 Enemies react to visibility, use cover and a flank route, fire aimed bursts,
@@ -31,7 +33,7 @@ regression test. Rebuilding the shipped meshes remains optional. Hardware Chrome
 and GPU timer queries are required for the device performance gate.
 
 ```bash
-npm run gate                  # tests + build + scenarios + 12 captures + hardware GPU perf
+npm run gate                  # tests + build + scenarios + 14 captures + hardware GPU perf
 node tools/diff.mjs            # vs locked baselines/
 npm run play -- --seconds 600  # real-input smoke and ten-minute stability soak
 node tools/route.mjs           # automated real-input mission completion

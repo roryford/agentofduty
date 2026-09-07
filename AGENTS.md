@@ -179,3 +179,12 @@ The performance budget is centralized in src/core/config.js: CPU submission
 p95 16.67ms, GPU p50 8ms, display rAF p95 17.5ms / p99 25ms. The display
 p95 tolerance accounts for 60Hz timestamp rounding; it is distinct from CPU
 cost. The probe excludes startup and requires fixed-tick progress.
+
+## Practice and regression checks
+
+- Briefing/pause: select Explore / no enemies, then a starting area. Mode/area
+  changes restart the session; Reset Position returns to that area.
+- `node tools/practice.mjs` exercises actual menu, movement, ADS/fire and reload
+  inputs across three aspect ratios; included in `npm run gate`.
+- Practice keeps magazine/reload behavior with unlimited reserve; no enemies or
+  automatic objective progression. Returning to Mission resets its first stage.

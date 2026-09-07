@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { mkdir, writeFile } from 'node:fs/promises';
 import { chromium } from 'playwright';
 import { serve } from './lib/server.mjs';
-import { checkPractice, checkAim } from './lib/practice-report.mjs';
+import { checkPractice, checkAim, checkMovement, checkFiring, checkReload } from './lib/practice-report.mjs';
 const server=await serve(new URL('../dist/',import.meta.url).pathname);
 let browser;
 try {
@@ -16,7 +16,7 @@ try {
   const cross=document.querySelector('.aim-cross'),r=c.canvas.getBoundingClientRect(),h=cross.getBoundingClientRect();
   const point=w._reticle.position.clone();w._reticle.getWorldPosition(point);point.project(c.viewCamera);
   return {mode:c.session.mode,state:c.session.state,hostiles:ai.enemies.filter(e=>e.alive).length,enemyColliders:ai.enemies.filter(e=>c.get('physics')._enabled[e.collider]).length,
-   position:p.position.toArray(),health:p.health,area:m.index,ads:w.ads,reloading:w._reloading,ammo:w.current.ammo,reserve:w.current.reserve,
+   tick:c.time.fixedFrame,position:p.position.toArray(),health:p.health,area:m.index,ads:w.ads,reloading:w._reloading,ammo:w.current.ammo,reserve:w.current.reserve,
    reticleVisible:w._reticle.visible,reticlePixels:Math.hypot(point.x*r.width/2,point.y*r.height/2),hudHidden:cross.hidden,hudOffset:[h.x+h.width/2-r.x-r.width/2,h.y+h.height/2-r.y-r.height/2]};
  });
  await page.getByLabel('MODE',{exact:true}).selectOption('practice');
@@ -29,20 +29,23 @@ try {
  }
  await page.getByLabel('STARTING AREA',{exact:true}).selectOption('0');
  await page.getByRole('button',{name:'RESUME'}).click();await page.waitForFunction(()=>window.__ENGINE__.ctx.session.playing);
+ const beforeMove=await observe();
  await page.keyboard.down('KeyS');await page.keyboard.down('ShiftLeft');await page.waitForTimeout(3500);await page.keyboard.up('KeyS');await page.keyboard.up('ShiftLeft');
  await page.keyboard.down('KeyD');await page.keyboard.down('KeyS');await page.waitForTimeout(2500);await page.keyboard.up('KeyD');await page.keyboard.up('KeyS');
- checkPractice(await observe());
+ checkPractice(await observe());checkMovement(beforeMove,await observe());
  for(const viewport of [{width:1280,height:720},{width:900,height:1000},{width:1800,height:720}]){
   await page.setViewportSize(viewport);await page.waitForTimeout(150);
-  checkAim(await observe());await page.keyboard.down('KeyE');await page.waitForTimeout(400);
+  checkAim(await observe(),'hip');const beforeFire=await observe();await page.keyboard.down('KeyE');await page.waitForTimeout(400);
   for(let i=0;i<12;i++){
    if(i===2){await page.mouse.down();await page.keyboard.down('KeyA');}
-   const s=await observe();checkAim(s);checkPractice(s);samples.push(s);await page.waitForTimeout(40);
+   const s=await observe();checkAim(s,'ads');checkPractice(s);samples.push(s);await page.waitForTimeout(40);
   }
+  checkFiring(beforeFire,await observe());
   await page.mouse.up();await page.keyboard.up('KeyA');await page.keyboard.up('KeyE');await page.waitForTimeout(300);
  }
- await page.keyboard.press('KeyR',{delay:60});await page.waitForTimeout(2600);
- assert.equal((await observe()).ammo,30);
+ const beforeReload=await observe();
+ await page.keyboard.press('KeyR',{delay:60});await page.waitForTimeout(300);const duringReload=await observe();
+ await page.waitForTimeout(2400);checkReload(beforeReload,duringReload,await observe());
  await page.keyboard.press('Escape');await page.waitForFunction(()=>window.__ENGINE__.ctx.session.state==='paused');
  await page.getByRole('button',{name:'RESET POSITION'}).click();
  assert.ok(Math.abs((await observe()).position[2]-48)<.1);

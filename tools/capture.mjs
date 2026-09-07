@@ -37,6 +37,10 @@ try {
         if (!mission.encounters[shot.encounter]) throw new Error('Missing declared encounter');
         mission.index=shot.encounter;c.session.retry();
       }
+      if (shot.mode === 'practice') {
+        c.session.setState('ready'); mission.configure('practice',shot.encounter ?? 0);
+        if (shot.pose !== 'ready') c.session.start();
+      }
       if (shot.yaw !== undefined)p.yaw=shot.yaw;
       if (shot.pitch !== undefined)p.pitch=shot.pitch;
       if (shot.pose==='ads')c.input.keys.KeyE=true;

@@ -28,7 +28,7 @@ export class UiSystem {
       <section class="session-menu" aria-label="Mission menu"><div class="menu-card"><div class="eyebrow">AGENT OF DUTY <span>01 / NIGHT OPERATIONS</span></div>
       <h1>NIGHTFALL<span>CHECKPOINT ASSAULT</span></h1><p class="menu-description">Push through the checkpoint. Clear the side route. Secure extraction.</p>
       <div class="mission-brief"><span>01 <b>BREACH</b></span><span>02 <b>FLANK</b></span><span>03 <b>EXTRACT</b></span></div>
-      <div class="mode-controls"><label>MODE<select name="mode"><option value="mission">Mission / hostiles</option><option value="practice">Explore / no enemies</option></select></label><label class="practice-area" hidden>STARTING AREA<select name="encounter"></select></label><p class="mode-note">Changing mode or area restarts the session.</p></div>
+      <div class="mode-controls"><label>MODE<select name="mode" aria-label="MODE"><option value="mission">Mission / hostiles</option><option value="practice">Explore / no enemies</option></select></label><label class="practice-area" hidden>STARTING AREA<select name="encounter" aria-label="STARTING AREA"></select></label><p class="mode-note">Changing mode or area restarts the session.</p></div>
       <button class="reset-position secondary" type="button" hidden>RESET POSITION</button>
       <button class="deploy-button" type="button">DEPLOY <span>→</span></button><button class="retry-button secondary" type="button">RESTART MISSION</button>
       <p class="menu-message" role="status"></p>
@@ -100,7 +100,7 @@ export class UiSystem {
     n['death-screen'].hidden = s.state !== 'dead';
     n['combat-hud'].hidden = menu || s.state === 'dead';
     n['objective-panel'].hidden = menu;
-    const aiming = ctx.get('weapons')._adsBlend >= 0.98 && !ctx.get('weapons')._reloading;
+    const aiming = ctx.get('weapons')._adsBlend >= 0.98 && ctx.get('weapons')._reticle?.visible && !ctx.get('weapons')._reloading;
     n['aim-cross'].hidden = !s.playing || aiming;
     this.modeSelect.value = s.mode;
     this.areaSelect.value = String(mission.practiceEncounter);

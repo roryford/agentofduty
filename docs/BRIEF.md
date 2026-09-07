@@ -98,7 +98,7 @@ event requires a new row in the same commit):
 | explosion | `{position, radius, damage}` |
 | resize | `{width, height}` |
 | session:state | `{state, previous}` |
-| session:reset | `{full, spawn:{x,y,z,yaw}, enemySpawns:[{x,z,role}], encounter}` |
+| session:reset | `{full, spawn:{x,y,z,yaw}, enemySpawns:[{x,z,role}], encounter, practice}` |
 | mission:objective | `{index, name}` |
 
 Damage is resolved by the target, never by the attacker. UI/audio observe resolved
@@ -154,3 +154,12 @@ Registry additions: session:state {state,previous}; session:reset
 {target,from,amount,health,headshot,killed,point}. damage:taken gains target;
 weapon:fire gains from. Damage requests are immutable; combat:hit is the
 resolved notification. Core session owns pause/death/retry and checkpoint reset.
+
+## Exploration follow-up
+
+The briefing and pause menus offer Mission or Explore / no enemies. Explore
+selects any encounter start, suppresses enemy meshes/colliders and progression,
+keeps finite magazines with unlimited reserve, and provides Reset Position.
+Mode and area changes restart the session; returning to Mission starts stage one.
+Aim markers must match the camera aim through ADS movement/recoil and resizing.
+The authored perimeter blocks escape, with checkpoint recovery as a fallback.

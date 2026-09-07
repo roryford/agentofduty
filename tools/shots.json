@@ -1,14 +1,93 @@
 [
-  {"name":"boot-street","frame":0,"description":"Checkpoint approach from spawn"},
-  {"name":"enemy-approach","frame":90,"description":"Squad approach and cover silhouettes"},
-  {"name":"combat","frame":20,"pose":"fire","description":"Hip-fire rifle and muzzle response"},
-  {"name":"ads","frame":20,"pose":"ads","description":"Clear sight line through optic"},
-  {"name":"reload","frame":40,"pose":"reload","description":"Magazine and support hand at reload midpoint"},
-  {"name":"courtyard","frame":0,"encounter":1,"description":"Lantern Court checkpoint and flank route"},
-  {"name":"extraction","frame":0,"encounter":2,"description":"Northern extraction encounter"},
-  {"name":"damage","frame":1,"pose":"damage","ui":true,"description":"Actor-qualified damage feedback"},
-  {"name":"death","frame":10,"pose":"death","ui":true,"description":"Death view and checkpoint countdown"},
-  {"name":"ready","frame":0,"pose":"ready","ui":true,"description":"Mission briefing and safe entry"},
-  {"name":"pause-settings","frame":0,"pose":"pause","ui":true,"description":"Pause menu and controls settings"},
-  {"name":"victory","frame":0,"pose":"victory","ui":true,"description":"Extraction completion and restart"}
+  {
+    "name": "boot-street",
+    "frame": 0,
+    "description": "Checkpoint approach from spawn"
+  },
+  {
+    "name": "enemy-approach",
+    "frame": 90,
+    "description": "Squad approach and cover silhouettes"
+  },
+  {
+    "name": "combat",
+    "frame": 20,
+    "pose": "fire",
+    "description": "Hip-fire rifle and muzzle response"
+  },
+  {
+    "name": "ads",
+    "frame": 20,
+    "pose": "ads",
+    "description": "Clear sight line through optic"
+  },
+  {
+    "name": "reload",
+    "frame": 40,
+    "pose": "reload",
+    "description": "Magazine and support hand at reload midpoint"
+  },
+  {
+    "name": "courtyard",
+    "frame": 0,
+    "encounter": 1,
+    "description": "Lantern Court checkpoint and flank route"
+  },
+  {
+    "name": "extraction",
+    "frame": 0,
+    "encounter": 2,
+    "description": "Northern extraction encounter"
+  },
+  {
+    "name": "damage",
+    "frame": 1,
+    "pose": "damage",
+    "ui": true,
+    "description": "Actor-qualified damage feedback"
+  },
+  {
+    "name": "death",
+    "frame": 10,
+    "pose": "death",
+    "ui": true,
+    "description": "Death view and checkpoint countdown"
+  },
+  {
+    "name": "ready",
+    "frame": 0,
+    "pose": "ready",
+    "ui": true,
+    "description": "Mission briefing and safe entry"
+  },
+  {
+    "name": "pause-settings",
+    "frame": 0,
+    "pose": "pause",
+    "ui": true,
+    "description": "Pause menu and controls settings"
+  },
+  {
+    "name": "victory",
+    "frame": 0,
+    "pose": "victory",
+    "ui": true,
+    "description": "Extraction completion and restart"
+  },
+  {
+    "name": "practice-menu",
+    "frame": 0,
+    "mode": "practice",
+    "pose": "ready",
+    "ui": true,
+    "description": "Enemy-free practice controls and area selector"
+  },
+  {
+    "name": "practice-court",
+    "frame": 0,
+    "mode": "practice",
+    "encounter": 1,
+    "ui": true,
+    "description": "Empty courtyard for movement and aiming tests"
+  }
 ]
