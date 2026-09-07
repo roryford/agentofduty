@@ -36,13 +36,17 @@ try {
  for(const viewport of [{width:1280,height:720,fov:80},{width:900,height:1000,fov:65},{width:1800,height:720,fov:100}]){
   await page.setViewportSize({width:viewport.width,height:viewport.height});await page.waitForTimeout(150);
   if(viewport.fov!==80){
-   await page.keyboard.press('Escape');await page.waitForFunction(()=>window.__ENGINE__.ctx.session.state==='paused');
+   await page.keyboard.press('Escape');
+   await page.waitForFunction(()=>window.__ENGINE__.ctx.session.state==='paused' && document.pointerLockElement===null);
    if(!await page.locator('details').evaluate(el=>el.open))await page.locator('summary').click();
-   await page.getByLabel('FIELD OF VIEW',{exact:true}).focus();await page.keyboard.press(viewport.fov===65?'Home':'End');
+   const fovControl=page.getByLabel('FIELD OF VIEW',{exact:true});
+   await fovControl.click();
+   await fovControl.press(viewport.fov===65?'Home':'End',{delay:60});
    await page.waitForFunction(value=>window.__ENGINE__.ctx.session.settings.fov===value,viewport.fov,{timeout:2000});
    assert.equal((await observe()).fov,viewport.fov);
    await page.getByRole('button',{name:'RESUME'}).click();await page.waitForFunction(()=>window.__ENGINE__.ctx.session.playing);
   }
+  await page.waitForFunction(()=>window.__ENGINE__.ctx.session.playing && !document.querySelector('.aim-cross').hidden,{},{timeout:2000});
   checkAim(await observe(),'hip');const beforeFire=await observe();await page.keyboard.down('KeyE');await page.waitForTimeout(400);
   for(let i=0;i<12;i++){
    if(i===2){await page.mouse.down();await page.keyboard.down('KeyA');}
