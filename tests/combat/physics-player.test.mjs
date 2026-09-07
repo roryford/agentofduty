@@ -88,6 +88,20 @@ test('vault sweep rejects overhead geometry along an otherwise valid route', asy
   assert.equal(makePlayer()._tryStartVault({ events: { emit() {} } }, blockedPhysics), false);
 });
 
+test('vault eye and reported hurtbox stay inside the swept tucked bounds', () => {
+  const player = new PlayerSystem();
+  player.vaulting = true;
+  player._vaultStart.set(0, 0.9, 0);
+  player._vaultEnd.set(0, 0.9, -1.4);
+  for (let i = 0; i <= 12; i++) {
+    player._sampleVault(i / 12, player.position);
+    const box = player.getHurtbox();
+    const eye = player.getEyePosition(new THREE.Vector3());
+    assert.ok(Math.abs((box.maxy - box.miny) - 1.2) < 1e-9);
+    assert.ok(eye.y > box.miny && eye.y < box.maxy, `eye ${eye.y} escaped ${box.miny}..${box.maxy}`);
+  }
+});
+
 test('explicit pause clears input and exits pointer lock', () => {
   const player = new PlayerSystem();
   const canvas = {};

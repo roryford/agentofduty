@@ -274,6 +274,7 @@ export class AiSystem {
       g: material.color?.g ?? 1,
       b: material.color?.b ?? 1,
     }));
+    const weaponSocket = group.getObjectByName('weapon_socket');
     return {
       id,
       active: true,
@@ -319,7 +320,10 @@ export class AiSystem {
         legL: group.getObjectByName('leg_l'),
         legR: group.getObjectByName('leg_r'),
         head: group.getObjectByName('head'),
+        weaponSocket,
       },
+      weaponSocketRest: weaponSocket?.quaternion.clone() ?? null,
+      weaponSocketCorrection: new THREE.Quaternion(),
     };
   }
 
@@ -777,6 +781,17 @@ export class AiSystem {
       if (rig.armR) rig.armR.rotation.x = 0.35 * moving + 1.18 * aiming + 0.92 * reloading - stride * 0.2;
       if (rig.armL) rig.armL.rotation.z = -0.32 * aiming - 0.78 * reloading;
       if (rig.armR) rig.armR.rotation.z = 0.18 * aiming + 0.3 * reloading;
+      if (rig.weaponSocket && enemy.weaponSocketRest && rig.armR) {
+        if (aiming) {
+          // The authored rifle already points along local -Z. Cancel the arm
+          // pivot rotation at its socket so raising the arm does not pitch the
+          // barrel upward; the socket position still follows the hand.
+          enemy.weaponSocketCorrection.copy(rig.armR.quaternion).invert();
+          rig.weaponSocket.quaternion.copy(enemy.weaponSocketCorrection).multiply(enemy.weaponSocketRest);
+        } else {
+          rig.weaponSocket.quaternion.copy(enemy.weaponSocketRest);
+        }
+      }
       if (rig.head) {
         rig.head.rotation.y = Math.sin(enemy.phase * 0.35) * 0.08 * (1 - aiming);
         rig.head.rotation.z = enemy.hitReact * 0.14;

@@ -1,8 +1,38 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import { readFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
 import * as THREE from 'three';
 import { AiSystem, chooseCoverPoint, headingForForwardMinusZ, shotHitsPlayer } from '../../src/ai/AiSystem.js';
 import { PhysicsSystem, LAYER_STATIC } from '../../src/physics/PhysicsSystem.js';
+
+function loadGlbNodeHierarchy(path) {
+  const bytes = readFileSync(path);
+  const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+  assert.equal(view.getUint32(0, true), 0x46546c67, 'expected binary glTF');
+  const jsonLength = view.getUint32(12, true);
+  assert.equal(view.getUint32(16, true), 0x4e4f534a, 'expected JSON chunk first');
+  const json = JSON.parse(new TextDecoder().decode(bytes.subarray(20, 20 + jsonLength)).replace(/\0+$/, ''));
+  const objects = json.nodes.map((node) => {
+    const object = new THREE.Group();
+    object.name = node.name ?? '';
+    if (node.matrix) {
+      object.matrix.fromArray(node.matrix);
+      object.matrix.decompose(object.position, object.quaternion, object.scale);
+    } else {
+      if (node.translation) object.position.fromArray(node.translation);
+      if (node.rotation) object.quaternion.fromArray(node.rotation);
+      if (node.scale) object.scale.fromArray(node.scale);
+    }
+    return object;
+  });
+  json.nodes.forEach((node, index) => {
+    for (const child of node.children ?? []) objects[index].add(objects[child]);
+  });
+  const root = new THREE.Group();
+  for (const node of json.scenes[json.scene ?? 0].nodes ?? []) root.add(objects[node]);
+  return root;
+}
 
 test('cover reservations are exclusive and flankers prefer lateral anchors', () => {
   const points = [
@@ -183,4 +213,33 @@ test('regaining line of sight cannot bypass an in-progress reload', () => {
   assert.deepEqual(firedWithAmmo, []);
   for (let tick = 0; tick < 120 && firedWithAmmo.length === 0; tick++) ai.fixedUpdate(1 / 120, ctx);
   assert.ok(firedWithAmmo[0] > 0, 'first post-reload shot must follow magazine transfer');
+});
+
+test('actual exported aimed rig keeps its muzzle on world -Z', (t) => {
+  const defaultAsset = fileURLToPath(new URL('../../public/models/enemy.glb', import.meta.url));
+  const hierarchy = loadGlbNodeHierarchy(process.env.AOD_ENEMY_GLB ?? defaultAsset);
+  const armR = hierarchy.getObjectByName('arm_r');
+  const weaponSocket = hierarchy.getObjectByName('weapon_socket');
+  const muzzleSocket = hierarchy.getObjectByName('muzzle_socket');
+  if (!armR || !weaponSocket || !muzzleSocket) {
+    t.skip('branch predates the corrected articulated enemy asset; set AOD_ENEMY_GLB to verify it');
+    return;
+  }
+  const ai = new AiSystem();
+  ai.enemies = [{
+    active: true, alive: true, group: hierarchy,
+    prevPosition: new THREE.Vector3(), position: new THREE.Vector3(),
+    moveAmount: 0, phase: 0, state: 'aim', hitReact: 0,
+    rig: {
+      armL: hierarchy.getObjectByName('arm_l'), armR,
+      legL: hierarchy.getObjectByName('leg_l'), legR: hierarchy.getObjectByName('leg_r'),
+      head: hierarchy.getObjectByName('head'), weaponSocket,
+    },
+    weaponSocketRest: weaponSocket.quaternion.clone(),
+    weaponSocketCorrection: new THREE.Quaternion(),
+  }];
+  ai.update(0, { time: { alpha: 1 } });
+  hierarchy.updateMatrixWorld(true);
+  const direction = new THREE.Vector3(0, 0, -1).applyQuaternion(muzzleSocket.getWorldQuaternion(new THREE.Quaternion()));
+  assert.ok(direction.dot(new THREE.Vector3(0, 0, -1)) > 0.995, `muzzle direction was ${direction.toArray()}`);
 });

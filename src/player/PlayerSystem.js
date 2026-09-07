@@ -20,7 +20,8 @@ const REGEN_DELAY = 4;
 const REGEN_RATE = 18;
 const VAULT_DURATION = 0.34;
 const VAULT_ARC = 1.0;
-const VAULT_COLLISION_HEIGHT = 1.15;
+const VAULT_COLLISION_HEIGHT = 1.2;
+const VAULT_EYE_OFFSET = 0.5;
 
 function smoothstep(t) {
   return t * t * (3 - 2 * t);
@@ -389,10 +390,12 @@ export class PlayerSystem {
     const iy = this.prevPosition.y + (this.position.y - this.prevPosition.y) * a;
     const iz = this.prevPosition.z + (this.position.z - this.prevPosition.z) * a;
     const feet = iy - this.capsuleHeight * 0.5;
-    const eyeHeight = this.alive
-      ? this.stance === 'crouch' ? PLAYER_DIMENSIONS.crouchEye : PLAYER_DIMENSIONS.standEye
-      : 0.35;
-    this.eye.set(ix, feet + eyeHeight, iz);
+    const eyeY = this.vaulting
+      ? iy + VAULT_EYE_OFFSET
+      : feet + (this.alive
+        ? this.stance === 'crouch' ? PLAYER_DIMENSIONS.crouchEye : PLAYER_DIMENSIONS.standEye
+        : 0.35);
+    this.eye.set(ix, eyeY, iz);
     this._applyCamera(ctx, this.eye);
     if (this.alive && this._stateDirty) {
       ctx.events.emit('player:state', {
@@ -422,9 +425,12 @@ export class PlayerSystem {
   }
 
   getEyePosition(out = this._eyeOut) {
-    const feet = this.position.y - this.capsuleHeight * 0.5;
     out.x = this.position.x;
-    out.y = feet + (this.stance === 'crouch' ? PLAYER_DIMENSIONS.crouchEye : PLAYER_DIMENSIONS.standEye);
+    if (this.vaulting) out.y = this.position.y + VAULT_EYE_OFFSET;
+    else {
+      const feet = this.position.y - this.capsuleHeight * 0.5;
+      out.y = feet + (this.stance === 'crouch' ? PLAYER_DIMENSIONS.crouchEye : PLAYER_DIMENSIONS.standEye);
+    }
     out.z = this.position.z;
     return out;
   }
